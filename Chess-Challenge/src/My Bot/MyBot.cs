@@ -233,12 +233,13 @@ public class MyBot : IChessBot
         done = false;
         int depth = 1;
 
-        Move bestMove = default;
+        Move finalMove = default;
         Move[] moves = board.GetLegalMoves(); // slow move generation is fine here
 
         while (!done)
         {
             int bestEval = -1000000;
+            Move bestMove = default;
             SortMoves(moves, bestMove);
 
             foreach (Move m in moves)
@@ -253,9 +254,11 @@ public class MyBot : IChessBot
                     bestMove = m;
                 }
             }
+            if (done) break;
 
             depth++;
+            finalMove = bestMove;
         }
-        return bestMove;
+        return finalMove;
     }
 }
