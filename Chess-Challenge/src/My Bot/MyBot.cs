@@ -1,6 +1,7 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
+using System.Numerics;
 
 public class MyBot : IChessBot
 {
@@ -9,6 +10,8 @@ public class MyBot : IChessBot
     Board board;
 
     Move BestMove;
+
+    //int count;
 
     bool done;
     readonly ulong[] RepetitionTable = new ulong[800];
@@ -88,27 +91,41 @@ public class MyBot : IChessBot
 
     int Eval()
     {
+        PieceType[] p = { PieceType.Pawn, PieceType.Knight, PieceType.Bishop, PieceType.Rook, PieceType.Queen, PieceType.King };
+
         int mgScore = 0, egScore = 0, pieceCount = 0;
-        foreach (var list in board.GetAllPieceLists())
-            foreach (var piece in list)
+        for (bool isWhite = false; ;)
+        {
+            foreach (var type in p)
             {
-                var (file, rank) = (piece.Square.File, piece.Square.Rank);
+                ulong bitboard = board.GetPieceBitboard(type, isWhite);
+                while(bitboard != 0)
+                {
+                    int idx = BitOperations.TrailingZeroCount(bitboard);
+                    bitboard ^= 1UL << idx;
 
-                // Use symmetrical squares (a2 <-> h2)
-                file ^= file > 3 ? 7 : 0;
+                    var (file, rank) = (idx % 8, idx / 8);
 
-                // Flip the rank for white pieces
-                rank ^= piece.IsWhite ? 7 : 0;
+                    // Use symmetrical squares (a2 <-> h2)
+                    file ^= file > 3 ? 7 : 0;
 
-                int sign = piece.IsWhite ? 1 : -1, pieceIndex = (int)piece.PieceType - 1;
-                var index = pieceIndex * 32 + rank * 4 + file;
+                    // Flip the rank for white pieces
+                    rank ^= isWhite ? 7 : 0;
 
-                mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
-                egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
-                pieceCount++;
+                    int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
+                    var index = pieceIndex * 32 + rank * 4 + file;
+
+                    mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
+                    egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
+                    pieceCount++;
+                }
+
             }
-
-        int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
+            if (isWhite)
+                break;
+            isWhite = true;
+        }
+            int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
         // Add a tempo bonus
         return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
@@ -122,6 +139,7 @@ public class MyBot : IChessBot
 
     int AlphaBeta(int depth, int alpha, int beta, bool root = false)
     {
+        //count++;
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
@@ -229,12 +247,15 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
+        //count = 0;
+
         done = false;
         int depth = 2;
 
         while (!done)
         {
             AlphaBeta(depth, -1000000, 1000000, true);
+            //Console.WriteLine("depth: " + depth + ", nodes: " + count);
             depth++;
         }
         return BestMove;
