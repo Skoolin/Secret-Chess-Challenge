@@ -104,8 +104,9 @@ public class MyBot : IChessBot
                 var sign = piece.IsWhite ? 1 : -1;
                 var pieceIndex = (int)piece.PieceType - 1;
 
-                mgScore += sign * (MaterialMG[pieceIndex] + PieceSquareTables[index]);
-                egScore += sign * (MaterialEG[pieceIndex] + PieceSquareTables[index + 192]); // 16 (squares) * 12 (pieces) * 2 (colors)
+                // TODO: Instead of scaling back the piece square values, scale the material values
+                mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
+                egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2); // 16 (squares) * 12 (pieces) * 2 (colors)
                 pieceCount++;
             }
         }
