@@ -9,8 +9,7 @@ public class MyBot : IChessBot
     Board board;
 
     bool done;
-
-    ulong[] RepetitionTable = new ulong[800];
+    readonly ulong[] RepetitionTable = new ulong[800];
 
     // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with `32768`
     const ulong TABLE_SIZE = 32768;
@@ -42,11 +41,6 @@ public class MyBot : IChessBot
         // for repetition detection
         RepetitionTable[board.PlyCount] = board.ZobristKey;
         board.MakeMove(m);
-    }
-
-    void UndoMove(Move m)
-    {
-        board.UndoMove(m);
     }
 
     int Eval()
@@ -144,7 +138,7 @@ public class MyBot : IChessBot
         {
             MakeMove(m);
             i = -AlphaBeta(depth - 1, -beta, -alpha);
-            UndoMove(m);
+            board.UndoMove(m);
             if (done) return 0; // time is up!!
 
             if (i >= beta)
@@ -184,7 +178,7 @@ public class MyBot : IChessBot
             {
                 MakeMove(m);
                 int eval = -AlphaBeta(depth, -1000000, -bestEval);
-                UndoMove(m);
+                board.UndoMove(m);
                 if (done) break;
                 if (eval > bestEval)
                 {
