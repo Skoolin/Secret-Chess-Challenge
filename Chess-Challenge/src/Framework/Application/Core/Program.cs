@@ -1,5 +1,9 @@
-﻿using Raylib_cs;
+﻿using ChessChallenge.API;
+using ChessChallenge.Example;
+using Raylib_cs;
+using System;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 
@@ -10,8 +14,15 @@ namespace ChessChallenge.Application
         const bool hideRaylibLogs = true;
         static Camera2D cam;
 
-        public static void Main()
+        public static void Main(string[] args)
         {
+            if (args.Contains("--uci"))
+            {
+                IChessBot bot = args.Contains("--evil") ? new EvilBot() : new MyBot();
+                new UCI(bot).StartUciMessageLoop();
+                return;
+            }
+
             Vector2 loadedWindowSize = GetSavedWindowSize();
             int screenWidth = (int)loadedWindowSize.X;
             int screenHeight = (int)loadedWindowSize.Y;
@@ -102,10 +113,5 @@ namespace ChessChallenge.Application
             bool isBigWindow = Raylib.GetScreenWidth() > Settings.ScreenSizeSmall.X;
             File.WriteAllText(FileHelper.PrefsFilePath, isBigWindow ? "1" : "0");
         }
-
-      
-
     }
-
-
 }
