@@ -36,6 +36,47 @@ public class MyBot : IChessBot
         Move
         )[] TranspositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
 
+    static readonly decimal[] Compressed =
+    {
+        30445995449831333214429598547m,
+        24238137566846913729271322956m,
+        18339588861850990841831183170m,
+        33845518446889058127066906415m,
+        25471128547541693458040968525m,
+        23920237298212738465575356703m,
+        29818577114959539551385183563m,
+        22684672555238843934297446995m,
+        31374478830787750503309863011m,
+        23302381592346180708512190023m,
+        27661824914426437875035360061m,
+        23302377036291163702074359879m,
+        26103500587487099153059628623m,
+        24847446121793821702496406099m,
+        19892058485780872713628573519m,
+        17439233312605614015817206860m,
+        36052007350401232473481761619m,
+        25784377578019368605253721955m,
+        21447856199366454171716245337m,
+        29205628018834439230888300359m,
+        25162927892418910053698588746m,
+        23934697351422908234375641669m,
+        28580613462327693231514668884m,
+        25155702855662303871390667341m,
+        26410601171604923863413839961m,
+        25785572263314251455196124245m,
+        29824645335639590212591636560m,
+        32611219443815259684250803531m,
+        23293924037109377984668393802m,
+        28272370378610116566492661059m,
+        29513889917940488783211158360m,
+        24228395084986202194831757898m,
+    };
+    static byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
+
+    // TODO: Apply compression if possible
+    int[] MaterialMG = { 82, 337, 365, 477, 1025, 0 };
+    int[] MaterialEG = { 94, 281, 297, 512, 936, 0 };
+
     void MakeMove(Move m)
     {
         // for repetition detection
@@ -45,8 +86,33 @@ public class MyBot : IChessBot
 
     int Eval()
     {
-        // TODO
-        return 0;
+        int mgScore = 0, egScore = 0, pieceCount = 0;
+
+        foreach (var list in board.GetAllPieceLists())
+        {
+            foreach (var piece in list)
+            {
+                var (file, rank) = (piece.Square.File, piece.Square.Rank);
+
+                // Use symmetrical squares (a2 <-> h2)
+                if (file > 3) file = 7 - file;
+
+                // Flip the rank for black pieces (a2 <-> a7)
+                if (!piece.IsWhite) rank = 7 - rank;
+
+                var index = file + rank * 4;
+                var sign = piece.IsWhite ? 1 : -1;
+                var pieceIndex = (int)piece.PieceType - 1;
+
+                mgScore += sign * (MaterialMG[pieceIndex] + PieceSquareTables[index]);
+                egScore += sign * (MaterialEG[pieceIndex] + PieceSquareTables[index + 192]); // 16 (squares) * 12 (pieces) * 2 (colors)
+                pieceCount++;
+            }
+        }
+
+        // Apply phase interpolation and add side to move bonus (25 units)
+        var eval = 25 + (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
+        return board.IsWhiteToMove ? eval : -eval;
     }
 
     void SortMoves(Span<Move> moves, Move tableMove)
