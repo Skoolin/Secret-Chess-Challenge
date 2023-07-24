@@ -73,7 +73,7 @@ public class MyBot : IChessBot
         29513889917940488783211158360m,
         24228395084986202194831757898m,
     };
-    byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
+    readonly byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
 
     // TODO: Apply compression if possible
     int[] MaterialMG = { 82, 337, 365, 477, 1025, 0 };
@@ -95,14 +95,13 @@ public class MyBot : IChessBot
                 var (file, rank) = (piece.Square.File, piece.Square.Rank);
 
                 // Use symmetrical squares (a2 <-> h2)
-                if (file > 3) file = 7 - file;
+                file ^= file > 3 ? 7 : 0;
 
                 // Flip the rank for white pieces
-                if (piece.IsWhite) rank = 7 - rank;
+                rank ^= piece.IsWhite ? 7 : 0;
 
-                var sign = piece.IsWhite ? 1 : -1;
-                var pieceIndex = (int)piece.PieceType - 1;
-                var index = pieceIndex * 16 + rank * 4 + file;
+                int sign = piece.IsWhite ? 1 : -1, pieceIndex = (int)piece.PieceType - 1;
+                var index = pieceIndex * 32 + rank * 4 + file;
 
                 mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
                 egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
