@@ -100,9 +100,9 @@ public class MyBot : IChessBot
                 // Flip the rank for black pieces (a2 <-> a7)
                 if (!piece.IsWhite) rank = 7 - rank;
 
-                var index = file + rank * 4;
                 var sign = piece.IsWhite ? 1 : -1;
                 var pieceIndex = (int)piece.PieceType - 1;
+                var index = pieceIndex * 16 + rank * 4 + file;
 
                 // TODO: Instead of scaling back the piece square values, scale the material values
                 mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
@@ -111,9 +111,10 @@ public class MyBot : IChessBot
             }
         }
 
-        // Apply phase interpolation and add side to move bonus (25 units)
-        var eval = 25 + (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
-        return board.IsWhiteToMove ? eval : -eval;
+        // Apply phase interpolation
+        var eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
+        // Add side to move bonus
+        return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
 
     void SortMoves(Span<Move> moves, Move tableMove)
