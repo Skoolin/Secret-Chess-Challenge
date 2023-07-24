@@ -73,7 +73,7 @@ public class MyBot : IChessBot
         29513889917940488783211158360m,
         24228395084986202194831757898m,
     };
-    static byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
+    byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
 
     // TODO: Apply compression if possible
     int[] MaterialMG = { 82, 337, 365, 477, 1025, 0 };
@@ -89,9 +89,7 @@ public class MyBot : IChessBot
     int Eval()
     {
         int mgScore = 0, egScore = 0, pieceCount = 0;
-
         foreach (var list in board.GetAllPieceLists())
-        {
             foreach (var piece in list)
             {
                 var (file, rank) = (piece.Square.File, piece.Square.Rank);
@@ -110,7 +108,6 @@ public class MyBot : IChessBot
                 egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
                 pieceCount++;
             }
-        }
 
         int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
         // Add a tempo bonus
@@ -119,7 +116,9 @@ public class MyBot : IChessBot
 
     void SortMoves(Span<Move> moves, Move tableMove)
     {
-        // TODO
+        for (int i = 0; i < moves.Length; i++)
+            if (moves[i].Equals(tableMove))
+                (moves[i], moves[0]) = (moves[0], moves[i]);
     }
 
     int AlphaBeta(int depth, int alpha, int beta, bool root = false)
@@ -173,9 +172,9 @@ public class MyBot : IChessBot
             return i;
         }
 
-        if(!root && isTableHit && TTdepth >= depth)
-        {
-            switch (TTtype) {
+        if (!root && isTableHit && TTdepth >= depth)
+            switch (TTtype)
+            {
                 case 1:
                     return TTeval;
                 case 2:
@@ -185,7 +184,6 @@ public class MyBot : IChessBot
                     if (TTeval <= beta) return TTeval;
                     break;
             }
-        }
 
         // TTm is now "best move"
         // might consider removing this line?? probably not though
@@ -218,11 +216,10 @@ public class MyBot : IChessBot
             {
                 alpha = i;
                 TTm = m;
+                if (root)
+                    BestMove = TTm;
             }
         }
-
-        if (root)
-            BestMove = TTm;
         TranspositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
         return alpha;
     }
@@ -238,9 +235,7 @@ public class MyBot : IChessBot
 
         while (!done)
         {
-            int bestEval = -1000000;
             AlphaBeta(depth, -1000000, 1000000, true);
-
             depth++;
         }
         return BestMove;
