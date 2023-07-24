@@ -1,5 +1,4 @@
 ﻿using ChessChallenge.API;
-using ChessChallenge.Example;
 using Raylib_cs;
 using System;
 using System.IO;
@@ -18,7 +17,7 @@ namespace ChessChallenge.Application
         {
             if (args.Contains("--uci"))
             {
-                IChessBot bot = args.Contains("--evil") ? new EvilBot() : new MyBot();
+                IChessBot bot = args.Contains("--evil") ? new SkolinBotOld() : new MyBot();
                 new UCI(bot).StartUciMessageLoop();
                 return;
             }
