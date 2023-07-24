@@ -91,39 +91,35 @@ public class MyBot : IChessBot
 
     int Eval()
     {
-        PieceType[] p = { PieceType.Pawn, PieceType.Knight, PieceType.Bishop, PieceType.Rook, PieceType.Queen, PieceType.King };
 
-        int mgScore = 0, egScore = 0, pieceCount = 0;
-        for (bool isWhite = false; ;)
+        int mgScore = 0, egScore = 0, pieceCount = 0, i = 0;
+        for (; i < 12;)
         {
-            foreach (var type in p)
+            PieceType type = (PieceType) 1 + (i % 6);
+            bool isWhite = i++ < 6;
+
+            ulong bitboard = board.GetPieceBitboard(type, isWhite);
+            while(bitboard != 0)
             {
-                ulong bitboard = board.GetPieceBitboard(type, isWhite);
-                while(bitboard != 0)
-                {
-                    int idx = BitOperations.TrailingZeroCount(bitboard);
-                    bitboard ^= 1UL << idx;
+                int idx = BitOperations.TrailingZeroCount(bitboard);
+                bitboard ^= 1UL << idx;
 
-                    var (file, rank) = (idx % 8, idx / 8);
+                var (file, rank) = (idx % 8, idx / 8);
 
-                    // Use symmetrical squares (a2 <-> h2)
-                    file ^= file > 3 ? 7 : 0;
+                // Use symmetrical squares (a2 <-> h2)
+                file ^= file > 3 ? 7 : 0;
 
-                    // Flip the rank for white pieces
-                    rank ^= isWhite ? 7 : 0;
+                // Flip the rank for white pieces
+                rank ^= isWhite ? 7 : 0;
 
-                    int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
-                    var index = pieceIndex * 32 + rank * 4 + file;
+                int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
+                var index = pieceIndex * 32 + rank * 4 + file;
 
-                    mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
-                    egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
-                    pieceCount++;
-                }
-
+                mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
+                egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
+                pieceCount++;
             }
-            if (isWhite)
-                break;
-            isWhite = true;
+
         }
             int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
         // Add a tempo bonus
