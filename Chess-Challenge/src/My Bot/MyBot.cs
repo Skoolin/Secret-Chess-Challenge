@@ -8,6 +8,8 @@ public class MyBot : IChessBot
     Timer timer;
     Board board;
 
+    Move BestMove;
+
     bool done;
     readonly ulong[] RepetitionTable = new ulong[800];
 
@@ -122,7 +124,7 @@ public class MyBot : IChessBot
         // TODO
     }
 
-    int AlphaBeta(int depth, int alpha, int beta)
+    int AlphaBeta(int depth, int alpha, int beta, bool root = false)
     {
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
@@ -173,7 +175,7 @@ public class MyBot : IChessBot
             return i;
         }
 
-        if(isTableHit && TTdepth >= depth)
+        if(!root && isTableHit && TTdepth >= depth)
         {
             switch (TTtype) {
                 case 1:
@@ -205,7 +207,7 @@ public class MyBot : IChessBot
         foreach (Move m in moves)
         {
             MakeMove(m);
-            i = -AlphaBeta(depth - 1, -beta, -alpha);
+            i = -AlphaBeta(depth - 1, -beta, root ? 1000000 : -alpha);
             board.UndoMove(m);
             if (done) return 0; // time is up!!
 
@@ -221,6 +223,8 @@ public class MyBot : IChessBot
             }
         }
 
+        if (root)
+            BestMove = TTm;
         TranspositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
         return alpha;
     }
@@ -232,34 +236,15 @@ public class MyBot : IChessBot
         board = _board;
 
         done = false;
-        int depth = 1;
-
-        Move finalMove = default;
-        Move[] moves = board.GetLegalMoves(); // slow move generation is fine here
+        int depth = 2;
 
         while (!done)
         {
             int bestEval = -1000000;
-            Move bestMove = default;
-            SortMoves(moves, bestMove);
-
-            foreach (Move m in moves)
-            {
-                MakeMove(m);
-                int eval = -AlphaBeta(depth, -1000000, -bestEval);
-                board.UndoMove(m);
-                if (done) break;
-                if (eval > bestEval)
-                {
-                    bestEval = eval;
-                    bestMove = m;
-                }
-            }
-            if (done) break;
+            AlphaBeta(depth, -1000000, 1000000, true);
 
             depth++;
-            finalMove = bestMove;
         }
-        return finalMove;
+        return BestMove;
     }
 }
