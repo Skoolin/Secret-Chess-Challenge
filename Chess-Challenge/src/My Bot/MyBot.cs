@@ -97,23 +97,21 @@ public class MyBot : IChessBot
                 // Use symmetrical squares (a2 <-> h2)
                 if (file > 3) file = 7 - file;
 
-                // Flip the rank for black pieces (a2 <-> a7)
-                if (!piece.IsWhite) rank = 7 - rank;
+                // Flip the rank for white pieces
+                if (piece.IsWhite) rank = 7 - rank;
 
                 var sign = piece.IsWhite ? 1 : -1;
                 var pieceIndex = (int)piece.PieceType - 1;
                 var index = pieceIndex * 16 + rank * 4 + file;
 
-                // TODO: Instead of scaling back the piece square values, scale the material values
                 mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
-                egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2); // 16 (squares) * 12 (pieces) * 2 (colors)
+                egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
                 pieceCount++;
             }
         }
 
-        // Apply phase interpolation
-        var eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
-        // Add side to move bonus
+        int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
+        // Add a tempo bonus
         return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
 
