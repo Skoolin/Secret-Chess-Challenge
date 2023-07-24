@@ -203,7 +203,7 @@ public class MyBot : IChessBot
         foreach (Move m in moves)
         {
             MakeMove(m);
-            i = -AlphaBeta(depth - 1, -beta, root ? 1000000 : -alpha);
+            i = -AlphaBeta(depth - 1, -beta, -alpha);
             board.UndoMove(m);
             if (done) return 0; // time is up!!
 
