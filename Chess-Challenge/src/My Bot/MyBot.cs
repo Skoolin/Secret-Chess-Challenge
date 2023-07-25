@@ -179,12 +179,10 @@ public class MyBot : IChessBot
             {
                 case 1:
                     return TTeval;
-                case 2:
-                    if (TTeval >= beta) return TTeval;
-                    break;
-                case 3:
-                    if (TTeval <= beta) return TTeval;
-                    break;
+                case 2 when TTeval >= beta:
+                    return TTeval;
+                case 3 when TTeval <= beta:
+                    return TTeval;
             }
 
         // TTm is now "best move"
