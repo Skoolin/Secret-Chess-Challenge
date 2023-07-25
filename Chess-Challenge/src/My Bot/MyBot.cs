@@ -129,7 +129,7 @@ public class MyBot : IChessBot
             int key = m.IsCapture // 3. MVV-LVA for captures
                 ? 1000 - 10 * (int)m.CapturePieceType - (int)m.MovePieceType
                 // 4. quiet moves with history heuristic
-                : 10000000 - historyTable[(int) m.MovePieceType, m.TargetSquare.Index];
+                : 100000000 - historyTable[(int) m.MovePieceType, m.TargetSquare.Index];
             if (m.IsPromotion) // 2. promotions
                 key = 1;
             // TODO killer moves
@@ -161,7 +161,7 @@ public class MyBot : IChessBot
             board.GetLegalMovesNonAlloc(ref moves);
             hasGeneratedMoves = true;
             if (moves.Length == 0)
-                return -200000 + board.PlyCount; // checkmate value
+                return -20000000 + board.PlyCount; // checkmate value
         }
 
         // TODO: Should we check for insufficient material here?
@@ -186,13 +186,11 @@ public class MyBot : IChessBot
                     return TTeval;
                 case 2 when TTeval >= beta:
                     return TTeval;
-                case 3 when TTeval <= beta:
+                case 3 when TTeval < alpha:
                     return TTeval;
             }
-
+        else TTm = isTableHit ? TTm : BestMove;
         // TTm is now "best move"
-        // might consider removing this line?? probably not though
-        if (!isTableHit) TTm = Move.NullMove;
 
         // TODO search TT entry before generating moves? or too token expensive?
 
@@ -205,7 +203,6 @@ public class MyBot : IChessBot
         if (moves.Length == 0)
             return 0;
 
-        int moveIdx = 0;
         foreach (Move m in moves)
         {
             board.MakeMove(m);
@@ -246,14 +243,13 @@ public class MyBot : IChessBot
 
         done = false;
         int depth = 2;
-
         historyTable.Initialize(); // reset history table
 
         while (!done)
         {
 //            total_cutoffs = 0;
 //            top_4_cutoffs = 0;
-            AlphaBeta(depth, -1000000, 1000000, true);
+            AlphaBeta(depth, -100000000, 100000000, true);
 //            Console.WriteLine("depth: " + depth + ", nodes: " + count);
 //            Console.WriteLine("" + top_4_cutoffs + "/" + total_cutoffs + " top4 : " + 100f * ((float)top_4_cutoffs / (float)total_cutoffs) + "%");
             depth++;
