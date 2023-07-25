@@ -115,6 +115,30 @@ public class MyBot : IChessBot
         return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
 
+    int QuiescenceSearch(int alpha, int beta)
+    {
+        int eval = Eval();
+
+        if (eval >= beta) return beta;
+        if (alpha < eval) alpha = eval;
+
+        Span<Move> moves = stackalloc Move[256];
+        board.GetLegalMovesNonAlloc(ref moves, true);
+
+        SortMoves(ref moves, default);
+        foreach (var move in moves)
+        {
+            board.MakeMove(move);
+            int score = -QuiescenceSearch(-beta, -alpha);
+            board.UndoMove(move);
+
+            if (score >= beta) return beta;
+            if (score > alpha) alpha = score;
+        }
+
+        return alpha;
+    }
+
     void SortMoves(ref Span<Move> moves, Move tableMove)
     {
         Span<int> sortKeys = stackalloc int[moves.Length];
@@ -171,8 +195,9 @@ public class MyBot : IChessBot
         j = alpha; // save starting alpha to detect PV and all nodes
 
         // leaf node returns static eval, we don't do TT here?
+        // TODO: do we extend depth on a check?
         if (depth == 0)
-            return Eval();
+            return QuiescenceSearch(alpha, beta);
 
         if (!root && isTableHit && TTdepth >= depth)
             switch (TTtype)
