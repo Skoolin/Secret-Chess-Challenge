@@ -91,7 +91,6 @@ public class MyBot : IChessBot
 
     int Eval()
     {
-
         int mgScore = 0, egScore = 0, pieceCount = 0, i = 0;
         for (; i < 12;)
         {
@@ -101,10 +100,9 @@ public class MyBot : IChessBot
             ulong bitboard = board.GetPieceBitboard(type, isWhite);
             while (bitboard != 0)
             {
-                int idx = BitOperations.TrailingZeroCount(bitboard);
-                bitboard ^= 1UL << idx;
-
-                var (file, rank) = (idx % 8, idx / 8);
+                int idx = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
+                int file = idx % 8,
+                    rank = idx / 8;
 
                 // Use symmetrical squares (a2 <-> h2)
                 file ^= file > 3 ? 7 : 0;
@@ -113,7 +111,7 @@ public class MyBot : IChessBot
                 rank ^= isWhite ? 7 : 0;
 
                 int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
-                var index = pieceIndex * 32 + rank * 4 + file;
+                int index = pieceIndex * 32 + rank * 4 + file;
 
                 mgScore += sign * (MaterialMG[pieceIndex] + (PieceSquareTables[index] - 83) * 2);
                 egScore += sign * (MaterialEG[pieceIndex] + (PieceSquareTables[index + 192] - 83) * 2);
