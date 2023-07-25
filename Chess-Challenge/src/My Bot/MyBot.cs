@@ -164,7 +164,7 @@ public class MyBot : IChessBot
             return 0;
 
         // query transposition table
-        (ulong TTzobrist, int TTdepth, int TTeval, int TTtype, Move TTm) = TranspositionTable[TTidx];
+        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = TranspositionTable[TTidx];
 
         bool isTableHit = TTzobrist == zobrist;
 
