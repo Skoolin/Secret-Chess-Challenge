@@ -95,11 +95,11 @@ public class MyBot : IChessBot
         int mgScore = 0, egScore = 0, pieceCount = 0, i = 0;
         for (; i < 12;)
         {
-            PieceType type = (PieceType) 1 + (i % 6);
+            PieceType type = (PieceType)1 + (i % 6);
             bool isWhite = i++ < 6;
 
             ulong bitboard = board.GetPieceBitboard(type, isWhite);
-            while(bitboard != 0)
+            while (bitboard != 0)
             {
                 int idx = BitOperations.TrailingZeroCount(bitboard);
                 bitboard ^= 1UL << idx;
@@ -121,7 +121,7 @@ public class MyBot : IChessBot
             }
 
         }
-            int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
+        int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
         // Add a tempo bonus
         return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
