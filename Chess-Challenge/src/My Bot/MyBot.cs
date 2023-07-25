@@ -1,7 +1,6 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
-using System.Numerics;
 
 public class MyBot : IChessBot
 {
