@@ -10,9 +10,12 @@ public class MyBot : IChessBot
 
     Move BestMove;
 
-    int count;
+//    int count;
+//    int total_cutoffs;
+//    int top_4_cutoffs;
 
     bool done;
+
 
     // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with `32768`
     const ulong TABLE_SIZE = 32768;
@@ -123,7 +126,7 @@ public class MyBot : IChessBot
 
     void SortMoves(ref Span<Move> moves, Move tableMove)
     {
-        var sortKeys = new int[moves.Length].AsSpan();
+        Span<int> sortKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
         {
             Move m = moves[i];
@@ -142,7 +145,7 @@ public class MyBot : IChessBot
 
     int AlphaBeta(int depth, int alpha, int beta, bool root = false)
     {
-        count++;
+//        count++;
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
@@ -207,15 +210,29 @@ public class MyBot : IChessBot
         if (moves.Length == 0)
             return 0;
 
+        int moveIdx = 0;
         foreach (Move m in moves)
         {
             MakeMove(m);
+            if (!root // dont reduce PV
+                && depth > 3
+                && moveIdx++ > 3
+                && !board.IsInCheck()
+                && !m.IsCapture
+                && -AlphaBeta(depth - 3, -beta, -alpha) < alpha)
+            {
+                board.UndoMove(m);
+                continue;
+            }
             i = -AlphaBeta(depth - 1, -beta, -alpha);
             board.UndoMove(m);
             if (done) return 0; // time is up!!
 
             if (i >= beta)
             {
+//                total_cutoffs++;
+//                if (moveIdx < 4)
+//                    top_4_cutoffs++;
                 // update TT
                 TranspositionTable[TTidx] = (zobrist, depth, i, 2, m);
                 // update history heuristic
@@ -240,7 +257,7 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
-        count = 0;
+//        count = 0;
 
         done = false;
         int depth = 2;
@@ -249,8 +266,11 @@ public class MyBot : IChessBot
 
         while (!done)
         {
+//            total_cutoffs = 0;
+//            top_4_cutoffs = 0;
             AlphaBeta(depth, -1000000, 1000000, true);
-            Console.WriteLine("depth: " + depth + ", nodes: " + count);
+//            Console.WriteLine("depth: " + depth + ", nodes: " + count);
+//            Console.WriteLine("" + top_4_cutoffs + "/" + total_cutoffs + " top4 : " + 100f * ((float)top_4_cutoffs / (float)total_cutoffs) + "%");
             depth++;
         }
         return BestMove;
