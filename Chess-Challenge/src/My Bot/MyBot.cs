@@ -10,7 +10,7 @@ public class MyBot : IChessBot
 
     Move BestMove;
 
-    //int count;
+    int count;
 
     bool done;
 
@@ -38,6 +38,7 @@ public class MyBot : IChessBot
         int,   // type
         Move
         )[] TranspositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
+    readonly int[,] historyTable = new int[7, 64];
 
     static readonly decimal[] Compressed =
     {
@@ -120,16 +121,28 @@ public class MyBot : IChessBot
         return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
 
-    void SortMoves(Span<Move> moves, Move tableMove)
+    void SortMoves(ref Span<Move> moves, Move tableMove)
     {
+        var sortKeys = new int[moves.Length].AsSpan();
         for (int i = 0; i < moves.Length; i++)
-            if (moves[i] == tableMove)
-                (moves[i], moves[0]) = (moves[0], moves[i]);
+        {
+            Move m = moves[i];
+            int key = m.IsCapture // 3. MVV-LVA for captures
+                ? 1000 - 10 * (int)m.CapturePieceType - (int)m.MovePieceType
+                // 4. quiet moves with history heuristic
+                : 10000000 - historyTable[(int) m.MovePieceType, m.TargetSquare.Index];
+            if (m.IsPromotion) // 2. promotions
+                key = 1;
+            // TODO killer moves
+            if (m == tableMove) key = 0; // 1. TT move
+            sortKeys[i] = key;
+        }
+        sortKeys.Sort(moves);
     }
 
     int AlphaBeta(int depth, int alpha, int beta, bool root = false)
     {
-        //count++;
+        count++;
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
@@ -164,15 +177,9 @@ public class MyBot : IChessBot
 
         j = alpha; // save starting alpha to detect PV and all nodes
 
-        // leaf node returns static eval
+        // leaf node returns static eval, we don't do TT here?
         if (depth == 0)
-        {
-            if (isTableHit)
-                return TTeval;
-            i = Eval();
-            TranspositionTable[TTidx] = (zobrist, 0, i, 1, TTm);
-            return i;
-        }
+            return Eval();
 
         if (!root && isTableHit && TTdepth >= depth)
             switch (TTtype)
@@ -193,7 +200,7 @@ public class MyBot : IChessBot
 
         if (!hasGeneratedMoves)
             board.GetLegalMovesNonAlloc(ref moves);
-        SortMoves(moves, TTm);
+        SortMoves(ref moves, TTm);
 
         // stalemate
         // will not be found in leaf nodes, is that fine?
@@ -209,7 +216,10 @@ public class MyBot : IChessBot
 
             if (i >= beta)
             {
+                // update TT
                 TranspositionTable[TTidx] = (zobrist, depth, i, 2, m);
+                // update history heuristic
+                historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
                 return beta;
             }
             if (i > alpha)
@@ -230,15 +240,17 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
-        //count = 0;
+        count = 0;
 
         done = false;
         int depth = 2;
 
+        historyTable.Initialize(); // TODO check if that really resets the history table
+
         while (!done)
         {
             AlphaBeta(depth, -1000000, 1000000, true);
-            //Console.WriteLine("depth: " + depth + ", nodes: " + count);
+            Console.WriteLine("depth: " + depth + ", nodes: " + count);
             depth++;
         }
         return BestMove;
