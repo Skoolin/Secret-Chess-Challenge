@@ -123,7 +123,7 @@ public class MyBot : IChessBot
 
     void SortMoves(ref Span<Move> moves, Move tableMove)
     {
-        var sortKeys = new int[moves.Length].AsSpan();
+        Span<int> sortKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
         {
             Move m = moves[i];
