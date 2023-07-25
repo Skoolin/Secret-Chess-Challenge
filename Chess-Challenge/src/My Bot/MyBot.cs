@@ -84,10 +84,6 @@ public class MyBot : IChessBot
     int[] MaterialMG = { 82, 337, 365, 477, 1025, 0 };
     int[] MaterialEG = { 94, 281, 297, 512, 936, 0 };
 
-    void MakeMove(Move m)
-    {
-        board.MakeMove(m);
-    }
 
     int Eval()
     {
@@ -143,7 +139,7 @@ public class MyBot : IChessBot
         sortKeys.Sort(moves);
     }
 
-    int AlphaBeta(int depth, int alpha, int beta, bool root = false)
+    int AlphaBeta(int depth, int alpha, int beta, bool root)
     {
 //        count++;
         ulong zobrist = board.ZobristKey;
@@ -151,8 +147,7 @@ public class MyBot : IChessBot
 
         // check if time is up
         // if so, we return later anyways so we dont need to return here (-3 token)
-        if (30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining)
-            done = true;
+        done = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
 
         int i = 0, j = 0;
         bool hasGeneratedMoves = false;
@@ -213,18 +208,8 @@ public class MyBot : IChessBot
         int moveIdx = 0;
         foreach (Move m in moves)
         {
-            MakeMove(m);
-            if (!root // dont reduce PV
-                && depth > 3
-                && moveIdx++ > 3
-                && !board.IsInCheck()
-                && !m.IsCapture
-                && -AlphaBeta(depth - 3, -beta, -alpha) < alpha)
-            {
-                board.UndoMove(m);
-                continue;
-            }
-            i = -AlphaBeta(depth - 1, -beta, -alpha);
+            board.MakeMove(m);
+            i = -AlphaBeta(depth - 1, -beta, -alpha, false);
             board.UndoMove(m);
             if (done) return 0; // time is up!!
 
@@ -262,7 +247,7 @@ public class MyBot : IChessBot
         done = false;
         int depth = 2;
 
-        historyTable.Initialize(); // TODO check if that really resets the history table
+        historyTable.Initialize(); // reset history table
 
         while (!done)
         {
