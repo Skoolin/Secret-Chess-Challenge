@@ -157,14 +157,9 @@ public class MyBot : IChessBot
                 return -200000 + board.PlyCount; // checkmate value
         }
 
-        // check for draw by repetition
-        for (; i < board.PlyCount;)
-            if (RepetitionTable[i++] == board.ZobristKey)
-                j++;
-        if (j > 1)
+        // IsFiftyMoveDraw() || IsInsufficientMaterial() || IsInStalemate() || IsRepeatedPosition()
+        if (board.IsDraw())
             return 0;
-
-        // TODO check for draw by 50 move rule
 
         // query transposition table
         (ulong TTzobrist, int TTdepth, int TTeval, int TTtype, Move TTm) = TranspositionTable[TTidx];
