@@ -13,7 +13,6 @@ public class MyBot : IChessBot
     //int count;
 
     bool done;
-    readonly ulong[] RepetitionTable = new ulong[800];
 
     // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with `32768`
     const ulong TABLE_SIZE = 32768;
@@ -83,8 +82,6 @@ public class MyBot : IChessBot
 
     void MakeMove(Move m)
     {
-        // for repetition detection
-        RepetitionTable[board.PlyCount] = board.ZobristKey;
         board.MakeMove(m);
     }
 
