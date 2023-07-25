@@ -153,8 +153,8 @@ public class MyBot : IChessBot
                 return -200000 + board.PlyCount; // checkmate value
         }
 
-        // IsFiftyMoveDraw() || IsInsufficientMaterial() || IsInStalemate() || IsRepeatedPosition()
-        if (board.IsDraw())
+        // TODO: Should we check for insufficient material here?
+        if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
 
         // query transposition table
