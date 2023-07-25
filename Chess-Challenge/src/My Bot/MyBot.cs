@@ -119,7 +119,7 @@ public class MyBot : IChessBot
         if (alpha < eval) alpha = eval;
 
         Span<Move> moves = stackalloc Move[256];
-        board.GetLegalMovesNonAlloc(ref moves, true);
+        board.GetLegalMovesNonAlloc(ref moves, !board.IsInCheck());
 
         SortMoves(ref moves, default);
         foreach (var move in moves)
@@ -164,27 +164,33 @@ public class MyBot : IChessBot
 
         int i = 0, j = 0;
         Span<Move> moves = stackalloc Move[256];
-        board.GetLegalMovesNonAlloc(ref moves);
+        bool generatedMoves;
 
         // check for checkmate
-        if (board.IsInCheck() && moves.Length == 0)
-            return -20000000 + board.PlyCount; // checkmate value
+        if (generatedMoves = board.IsInCheck()) // tricky token saved ;)
+        {
+            board.GetLegalMovesNonAlloc(ref moves);
+            if(moves.Length == 0) {
+                return -20000000 + board.PlyCount; // checkmate value
+            }
+        }
 
         // TODO: Should we check for insufficient material here?
-        if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100 || moves.Length == 0)
+        if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
 
         // query transposition table
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = TranspositionTable[TTidx];
-        var TableMove = TTm;
         bool isTableHit = TTzobrist == zobrist;
 
         j = alpha; // save starting alpha to detect PV and all nodes
 
-        // leaf node returns static eval, we don't do TT here?
         // TODO: do we extend depth on a check?
         if (depth == 0)
-            return QuiescenceSearch(alpha, beta);
+            if (board.IsInCheck())
+                depth += 1;
+            else
+                return QuiescenceSearch(alpha, beta);
 
         if (!root && isTableHit && TTdepth >= depth)
             switch (TTtype)
@@ -200,6 +206,13 @@ public class MyBot : IChessBot
         // TTm is now "best move"
 
         // TODO search TT entry before generating moves? or too token expensive?
+
+        if (!generatedMoves)
+            board.GetLegalMovesNonAlloc(ref moves);
+
+        // stalemate
+        if (moves.Length == 0)
+            return 0;
 
         SortMoves(ref moves, TTm);
 
