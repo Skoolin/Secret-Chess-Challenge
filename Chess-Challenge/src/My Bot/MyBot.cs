@@ -10,15 +10,11 @@ public class MyBot : IChessBot
 
     Move BestMove;
 
-//    int count;
-//    int total_cutoffs;
-//    int top_4_cutoffs;
-
     bool done;
 
 
-    // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with `32768`
-    const ulong TABLE_SIZE = 32768;
+    // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
+    const ulong TABLE_SIZE = 1 << 23;
 
     /*
      * Transposition Table
@@ -136,36 +132,27 @@ public class MyBot : IChessBot
 
     int AlphaBeta(int depth, int alpha, int beta, bool root)
     {
-//        count++;
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
         // check if time is up
-        // if so, we return later anyways so we dont need to return here (-3 token)
         done = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
 
         int i = 0, j = 0;
-        bool hasGeneratedMoves = false;
         Span<Move> moves = stackalloc Move[256];
+        board.GetLegalMovesNonAlloc(ref moves);
 
         // check for checkmate
-        // if in check, we generate the moves here already
-        // to see if it is checkmate
-        if (board.IsInCheck())
-        {
-            board.GetLegalMovesNonAlloc(ref moves);
-            hasGeneratedMoves = true;
-            if (moves.Length == 0)
-                return -20000000 + board.PlyCount; // checkmate value
-        }
+        if (board.IsInCheck() && moves.Length == 0)
+            return -20000000 + board.PlyCount; // checkmate value
 
         // TODO: Should we check for insufficient material here?
-        if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
+        if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100 || moves.Length == 0)
             return 0;
 
         // query transposition table
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = TranspositionTable[TTidx];
-
+        var TableMove = TTm;
         bool isTableHit = TTzobrist == zobrist;
 
         j = alpha; // save starting alpha to detect PV and all nodes
@@ -184,19 +171,12 @@ public class MyBot : IChessBot
                 case 3 when TTeval < alpha:
                     return TTeval;
             }
-        else TTm = isTableHit ? TTm : BestMove;
+        TTm = isTableHit ? TTm : Move.NullMove;
         // TTm is now "best move"
 
         // TODO search TT entry before generating moves? or too token expensive?
 
-        if (!hasGeneratedMoves)
-            board.GetLegalMovesNonAlloc(ref moves);
         SortMoves(ref moves, TTm);
-
-        // stalemate
-        // will not be found in leaf nodes, is that fine?
-        if (moves.Length == 0)
-            return 0;
 
         foreach (Move m in moves)
         {
@@ -207,9 +187,6 @@ public class MyBot : IChessBot
 
             if (i >= beta)
             {
-//                total_cutoffs++;
-//                if (moveIdx < 4)
-//                    top_4_cutoffs++;
                 // update TT
                 TranspositionTable[TTidx] = (zobrist, depth, i, 2, m);
                 // update history heuristic
@@ -234,21 +211,17 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
-//        count = 0;
-
         done = false;
-        int depth = 2;
+        int depth = 1;
         historyTable.Initialize(); // reset history table
+
+        BestMove = default;
 
         while (!done)
         {
-//            total_cutoffs = 0;
-//            top_4_cutoffs = 0;
             AlphaBeta(depth, -100000000, 100000000, true);
-//            Console.WriteLine("depth: " + depth + ", nodes: " + count);
-//            Console.WriteLine("" + top_4_cutoffs + "/" + total_cutoffs + " top4 : " + 100f * ((float)top_4_cutoffs / (float)total_cutoffs) + "%");
             depth++;
         }
-        return BestMove;
+        return BestMove == default ? board.GetLegalMoves()[0] : BestMove;
     }
 }
