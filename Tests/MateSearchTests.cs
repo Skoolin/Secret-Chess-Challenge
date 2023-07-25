@@ -7,7 +7,6 @@ namespace Tests;
 public class MateSearchTests
 {
     private const int SearchTimeMultiplier = 30;
-    private const string TestSuiteFolderPath = @"..\..\..\testsuites\";
 
     [TestCaseSource(nameof(GetTestCases))]
     public void ShouldFindMateInX(string fen, int mateIn, int searchTimeMs)
@@ -37,7 +36,9 @@ public class MateSearchTests
 
         foreach (var (fileName, mateIn, searchForMs, displayName) in tests)
         {
-            var fens = File.ReadAllLines(Path.Combine(TestSuiteFolderPath, $"{fileName}.txt"));
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "testsuites", $"{fileName}.txt");
+            var fens = File.ReadAllLines(path);
+
             foreach (var fen in fens)
             {
                 yield return new TestCaseData(fen, mateIn, searchForMs).SetName($"{displayName} - {fen}");

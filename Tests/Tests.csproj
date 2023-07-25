@@ -18,7 +18,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\Chess-Challenge\Chess-Challenge.csproj" />
+		<ProjectReference Include="..\Chess-Challenge\Chess-Challenge.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="testsuites\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
 	</ItemGroup>
 
 </Project>
