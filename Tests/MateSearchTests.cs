@@ -7,16 +7,17 @@ namespace Tests;
 public class MateSearchTests
 {
     private const int SearchTimeMultiplier = 30;
+    private static readonly int[] Timings = { 50, 100, 150, 1000, 1500 };
 
     [TestCaseSource(nameof(GetTestCases))]
-    public void ShouldFindMateInX(string fen, int mateIn, int searchTimeMs)
+    public void ShouldFindMateInX(string fen, int mateIn)
     {
         var bot = new MyBot();
         var board = Board.CreateBoardFromFEN(fen);
 
-        for (var moveIndex = 0; moveIndex < mateIn * 2 - 1; moveIndex++)
+        for (var moveIndex = mateIn * 2 - 2; moveIndex >= 0; moveIndex--)
         {
-            var move = bot.Think(board, new ChessChallenge.API.Timer(searchTimeMs * SearchTimeMultiplier));
+            var move = bot.Think(board, new ChessChallenge.API.Timer(Timings[moveIndex / 2] * SearchTimeMultiplier));
             board.MakeMove(move);
         }
 
@@ -25,23 +26,23 @@ public class MateSearchTests
 
     private static IEnumerable<TestCaseData> GetTestCases()
     {
-        var tests = new List<(string fileName, int mateIn, int searchForMs, string displayName)>
+        var tests = new List<(string fileName, int mateIn, string displayName)>
         {
-            ("mate1", mateIn: 1, searchForMs: 50, "Mate in One"),
-            ("mate2", mateIn: 2, searchForMs: 50, "Mate in Two"),
-            ("mate3", mateIn: 3, searchForMs: 75, "Mate in Three"),
-            ("mate4", mateIn: 4, searchForMs: 250, "Mate in Four"),
-            ("mate5", mateIn: 5, searchForMs: 750, "Mate in Five"),
+            ("mate1", mateIn: 1, "Mate in One"),
+            ("mate2", mateIn: 2, "Mate in Two"),
+            ("mate3", mateIn: 3, "Mate in Three"),
+            ("mate4", mateIn: 4, "Mate in Four"),
+            ("mate5", mateIn: 5, "Mate in Five"),
         };
 
-        foreach (var (fileName, mateIn, searchForMs, displayName) in tests)
+        foreach (var (fileName, mateIn, displayName) in tests)
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "testsuites", $"{fileName}.txt");
             var fens = File.ReadAllLines(path);
 
             foreach (var fen in fens)
             {
-                yield return new TestCaseData(fen, mateIn, searchForMs).SetName($"{displayName} - {fen}");
+                yield return new TestCaseData(fen, mateIn).SetName($"{displayName} - {fen}");
             }
         }
     }
