@@ -127,7 +127,7 @@ public class MyBot : IChessBot
     void SortMoves(Span<Move> moves, Move tableMove)
     {
         for (int i = 0; i < moves.Length; i++)
-            if (moves[i].Equals(tableMove))
+            if (moves[i] == tableMove)
                 (moves[i], moves[0]) = (moves[0], moves[i]);
     }
 
