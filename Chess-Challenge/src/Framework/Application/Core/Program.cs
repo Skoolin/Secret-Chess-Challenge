@@ -15,13 +15,31 @@ namespace ChessChallenge.Application
 
         public static void Main(string[] args)
         {
-            if (args.Contains("--uci"))
+            if (!args.Contains("--uci"))
             {
-                IChessBot bot = args.Contains("--evil") ? new Skolin() : new MyBot();
-                new UCI(bot).StartUciMessageLoop();
+                RunUI();
                 return;
             }
 
+            var botName = args.FirstOrDefault(a => a.StartsWith("--bot="))?[6..] ?? nameof(MyBot);
+
+            var bots = AppDomain.CurrentDomain.GetAssemblies().SelectMany(s => s.GetTypes())
+                .Where(p => typeof(IChessBot).IsAssignableFrom(p) && !p.IsInterface)
+                .Where(t => t.GetConstructor(Type.EmptyTypes) is not null)
+                .ToList();
+
+            var botType = bots.FirstOrDefault(b => b.Name.Equals(botName, StringComparison.InvariantCultureIgnoreCase))
+                ?? throw new Exception($"Could not find bot with name {botName}");
+
+            var bot = Activator.CreateInstance(botType)
+                ?? throw new Exception($"Could not create instance of bot {botName}");
+
+            Console.WriteLine($"Running bot {botType}");
+            new UCI((IChessBot)bot).StartUciMessageLoop();
+        }
+
+        private static void RunUI()
+        {
             Vector2 loadedWindowSize = GetSavedWindowSize();
             int screenWidth = (int)loadedWindowSize.X;
             int screenHeight = (int)loadedWindowSize.Y;
