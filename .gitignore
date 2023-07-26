@@ -396,3 +396,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Local Bots
+**/src/Bots/*
+!**/src/Bots/Skolin.cs
+!**/src/Bots/Evil.cs
