@@ -13,7 +13,7 @@ public class MyBot : IChessBot
     private Board board;
 
     private Move bestMove;
-    private bool done;
+    private bool terminated;
 
     // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
     private const ulong TABLE_SIZE = 1 << 23;
@@ -167,13 +167,12 @@ public class MyBot : IChessBot
     {
         nodes++; // #DEBUG
 
+        // Check if time is up
+        terminated = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
+
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
-        // check if time is up
-        done = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
-
-        int i = 0, j = 0;
         Span<Move> moves = stackalloc Move[256];
         bool generatedMoves;
 
@@ -182,9 +181,7 @@ public class MyBot : IChessBot
         {
             board.GetLegalMovesNonAlloc(ref moves);
             if (moves.Length == 0)
-            {
                 return -20000000 + board.PlyCount; // checkmate value
-            }
         }
 
         // TODO: Should we check for insufficient material here?
@@ -195,15 +192,16 @@ public class MyBot : IChessBot
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
         bool isTableHit = TTzobrist == zobrist;
 
-        j = alpha; // save starting alpha to detect PV and all nodes
+        // Save starting alpha to detect PV and all nodes
+        var oldAlpha = alpha;
 
-        // TODO: do we extend depth on a check?
         if (depth == 0)
             if (board.IsInCheck())
                 depth += 1;
             else
                 return QuiescenceSearch(alpha, beta);
 
+        // Transposition table probing
         if (!root && isTableHit && TTdepth >= depth)
             switch (TTtype)
             {
@@ -230,55 +228,53 @@ public class MyBot : IChessBot
         foreach (Move m in moves)
         {
             board.MakeMove(m);
-            i = -AlphaBeta(depth - 1, -beta, -alpha, false);
+            int score = -AlphaBeta(depth - 1, -beta, -alpha, false);
             board.UndoMove(m);
-            if (done) return 0; // time is up!!
 
-            if (i >= beta)
+            // Terminate search if time is up
+            if (terminated) return 0;
+
+            if (score >= beta)
             {
-                // update TT
-                transpositionTable[TTidx] = (zobrist, depth, i, 2, m);
-                // update history heuristic
+                // Save beta cutoff to the TT
+                transpositionTable[TTidx] = (zobrist, depth, score, 2, m);
+                // TODO: Should we update history for quiet moves only to avoid noise?
                 historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
                 return beta;
             }
-            if (i > alpha)
+            if (score > alpha)
             {
-                alpha = i;
+                alpha = score;
                 TTm = m;
                 if (root)
                     bestMove = TTm;
             }
         }
-        transpositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
+
+        transpositionTable[TTidx] = (zobrist, depth, alpha, oldAlpha == alpha ? 3 : 1, TTm);
         return alpha;
     }
 
     public Move Think(Board _board, Timer _timer)
     {
-        // set up search parameters
         timer = _timer;
         board = _board;
 
         nodes = 0;  // #DEBUG
         qNodes = 0; // #DEBUG
 
-        done = false;
-        int depth = 1;
-        historyTable.Initialize(); // reset history table
-
+        historyTable.Initialize();
         bestMove = default;
+        terminated = false;
 
-        while (!done)
+        for (int depth = 1; !terminated; depth++)
         {
-            var score = // #DEBUG
-                AlphaBeta(depth, -100000000, 100000000, true);
+            AlphaBeta(depth, -100_000_000, 100_000_000, true);
 
-            Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}"); // #DEBUG
-            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");          // #DEBUG
-
-            depth++;
+            Console.Write($"info depth {depth} nodes {nodes} qnodes {qNodes}");         // #DEBUG
+            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}"); // #DEBUG
         }
+
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
     }
 }
