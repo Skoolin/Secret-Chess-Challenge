@@ -170,38 +170,33 @@ public class MyBot : IChessBot
         // Check if time is up
         terminated = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
 
-        ulong zobrist = board.ZobristKey;
-        ulong TTidx = zobrist % TABLE_SIZE;
-
-        Span<Move> moves = stackalloc Move[256];
-        bool generatedMoves;
-
-        // check for checkmate
-        if (generatedMoves = board.IsInCheck()) // tricky token saved ;)
-        {
-            board.GetLegalMovesNonAlloc(ref moves);
-            if (moves.Length == 0)
-                return -20000000 + board.PlyCount; // checkmate value
-        }
-
+        // Early return without generating moves for draw positions
         // TODO: Should we check for insufficient material here?
         if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
 
-        // query transposition table
-        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
-        bool isTableHit = TTzobrist == zobrist;
-
-        // Save starting alpha to detect PV and all nodes
-        var oldAlpha = alpha;
-
+        // Also early return without generating moves if we're dropping in the QSearch
         if (depth == 0)
             if (board.IsInCheck())
                 depth += 1;
             else
                 return QuiescenceSearch(alpha, beta);
 
-        // Transposition table probing
+        Span<Move> moves = stackalloc Move[256];
+        board.GetLegalMovesNonAlloc(ref moves);
+
+        // Checkmate or stalemate
+        if (moves.Length == 0)
+            return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
+
+        // Transposition table lookup
+        // TODO: Should we try to probe before generating moves?
+        ulong zobrist = board.ZobristKey;
+        ulong TTidx = zobrist % TABLE_SIZE;
+
+        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
+        bool isTableHit = TTzobrist == zobrist;
+
         if (!root && isTableHit && TTdepth >= depth)
             switch (TTtype)
             {
@@ -214,14 +209,8 @@ public class MyBot : IChessBot
         TTm = isTableHit ? TTm : Move.NullMove;
         // TTm is now "best move"
 
-        // TODO search TT entry before generating moves? or too token expensive?
-
-        if (!generatedMoves)
-            board.GetLegalMovesNonAlloc(ref moves);
-
-        // stalemate
-        if (moves.Length == 0)
-            return 0;
+        // Save starting alpha to detect PV and all nodes
+        var oldAlpha = alpha;
 
         SortMoves(ref moves, TTm);
 
