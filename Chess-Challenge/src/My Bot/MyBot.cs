@@ -4,41 +4,45 @@ using System.Linq;
 
 public class MyBot : IChessBot
 {
-    // put these here to save function definition and call footprint
+    // Node counts for debugging purposes
+    private int nodes;   // #DEBUG
+    private int qNodes;  // #DEBUG
+
+    // Save received search parameters to simplify function signatures
     private Timer timer;
     private Board board;
 
     private Move bestMove;
-
     private bool done;
 
-    private int nodes;   // #DEBUG
-    private int qNodes;  // #DEBUG
-
-    // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
+    // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
     private const ulong TABLE_SIZE = 1 << 23;
 
-    /*
-     * Transposition Table
-     * 
-     * to insert: ulong zobrist, int depth, int eval, int type, Move m
-     * TranspositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, eval, type, m);
-     * 
-     * to retrieve:
-     * (ulong TTzobrist, int TTdepth, int TTeval, int TTtype, Move TTm) = TranspositionTable[zobrist % TABLE_SIZE];
-     * 
-     * Types:
-     * 1: PV, exact evaluation
-     * 2: beta cutoff, lower bound
-     * 3: all node, upper bound
-     */
-    private readonly (
-        ulong, // zobrist
-        int,   // depth
-        int,   // eval
-        int,   // type
-        Move
-        )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
+    /// <summary>
+    /// Transposition Table for caching previously computed positions during search.
+    /// 
+    /// To insert an entry:
+    /// <code>TranspositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, evaluation, nodeType, move);</code>
+    /// 
+    /// To retrieve an entry:
+    /// <code>var (zobrist, depth, evaluation, nodeType, move) = TranspositionTable[zobrist % TABLE_SIZE];</code>
+    /// 
+    /// Node types:
+    /// <list type="bullet">
+    ///     <item>1: PV node, an exact evaluation</item>
+    ///     <item>2: Beta cutoff node, a lower bound</item>
+    ///     <item>3: All node, an upper bound</item>
+    /// </list>
+    /// </summary>
+    private readonly
+    (
+        ulong,  // Zobrist
+        int,    // Depth
+        int,    // Evaluation
+        int,    // Node type
+        Move    // Best move
+    )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
+
     private readonly int[,] historyTable = new int[7, 64];
 
     private static readonly decimal[] compressed =
