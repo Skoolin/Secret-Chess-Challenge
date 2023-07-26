@@ -82,46 +82,44 @@ public class MyBot : IChessBot
     };
     private readonly byte[] pieceSquareTables = compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
 
-    private int Eval()
+    private int EvaluateStatically()
     {
-        int mgScore = 0, egScore = 0, pieceCount = 0, i = 0;
-        for (; i < 12;)
-        {
-            PieceType type = (PieceType)1 + (i % 6);
-            bool isWhite = i++ < 6;
+        int mgScore = 0, egScore = 0, pieceCount = 0;
 
-            ulong bitboard = board.GetPieceBitboard(type, isWhite);
-            while (bitboard != 0)
+        // Loop through white and black pieces (1 for white, -1 for black)
+        foreach (var sign in new[] { 1, -1 })
+            for (var piece = 0; piece < 6; piece++)
             {
-                int idx = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
-                int file = idx % 8,
-                    rank = idx / 8;
+                ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, sign is 1);
+                while (bitboard != 0)
+                {
+                    int idx = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
+                    int file = idx % 8,
+                        rank = idx / 8;
 
-                // Use symmetrical squares (a2 <-> h2)
-                file ^= file > 3 ? 7 : 0;
+                    // Use symmetrical squares (a <-> h)
+                    file ^= file > 3 ? 7 : 0;
+                    // Flip the rank for white pieces
+                    rank ^= sign is 1 ? 7 : 0;
 
-                // Flip the rank for white pieces
-                rank ^= isWhite ? 7 : 0;
+                    int index = piece * 32 + rank * 4 + file;
 
-                int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
-                int index = pieceIndex * 32 + rank * 4 + file;
-
-                mgScore += sign * pieceSquareTables[index];
-                egScore += sign * pieceSquareTables[index + 192];
-                pieceCount++;
+                    mgScore += sign * pieceSquareTables[index];
+                    egScore += sign * pieceSquareTables[index + 192];
+                    pieceCount++;
+                }
             }
 
-        }
         int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
-        // Add a tempo bonus
-        return 25 + (board.IsWhiteToMove ? eval : -eval);
+        // Tempo bonus for the current side to move
+        return 10 + (board.IsWhiteToMove ? eval : -eval);
     }
 
     private int QuiescenceSearch(int alpha, int beta)
     {
         qNodes++; // #DEBUG
 
-        int eval = Eval();
+        int eval = EvaluateStatically();
 
         if (eval >= beta) return beta;
         if (alpha < eval) alpha = eval;
