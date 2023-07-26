@@ -195,19 +195,12 @@ public class MyBot : IChessBot
         ulong TTidx = zobrist % TABLE_SIZE;
 
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
-        bool isTableHit = TTzobrist == zobrist;
 
-        if (!root && isTableHit && TTdepth >= depth)
-            switch (TTtype)
-            {
-                case 1:
-                case 2 when TTeval >= beta:
-                case 3 when TTeval < alpha:
-                    return TTeval;
-            }
-
-        TTm = isTableHit ? TTm : Move.NullMove;
-        // TTm is now "best move"
+        // The TT entry is from a different position, so no best move is available
+        if (TTzobrist != zobrist)
+            TTm = default;
+        else if (!root && TTdepth >= depth && (TTtype is 1 || TTtype is 2 && TTeval >= beta || TTtype is 3 && TTeval <= alpha))
+            return TTeval;
 
         // Save starting alpha to detect PV and all nodes
         var oldAlpha = alpha;
