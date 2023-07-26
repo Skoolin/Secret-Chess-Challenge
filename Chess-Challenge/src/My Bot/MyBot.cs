@@ -207,12 +207,11 @@ public class MyBot : IChessBot
             switch (TTtype)
             {
                 case 1:
-                    return TTeval;
                 case 2 when TTeval >= beta:
-                    return TTeval;
                 case 3 when TTeval < alpha:
                     return TTeval;
             }
+
         TTm = isTableHit ? TTm : Move.NullMove;
         // TTm is now "best move"
 
