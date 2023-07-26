@@ -4,42 +4,48 @@ using System.Linq;
 
 public class MyBot : IChessBot
 {
-    // put these here to save function definition and call footprint
-    Timer timer;
-    Board board;
+    // Node counts for debugging purposes
+    private int nodes;   // #DEBUG
+    private int qNodes;  // #DEBUG
 
-    Move BestMove;
+    // Save received search parameters to simplify function signatures
+    private Timer timer;
+    private Board board;
 
-    bool done;
+    private Move bestMove;
+    private bool done;
 
+    // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
+    private const ulong TABLE_SIZE = 1 << 23;
 
-    // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
-    const ulong TABLE_SIZE = 1 << 23;
+    /// <summary>
+    /// Transposition Table for caching previously computed positions during search.
+    /// 
+    /// To insert an entry:
+    /// <code>TranspositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, evaluation, nodeType, move);</code>
+    /// 
+    /// To retrieve an entry:
+    /// <code>var (zobrist, depth, evaluation, nodeType, move) = TranspositionTable[zobrist % TABLE_SIZE];</code>
+    /// 
+    /// Node types:
+    /// <list type="bullet">
+    ///     <item>1: PV node, an exact evaluation</item>
+    ///     <item>2: Beta cutoff node, a lower bound</item>
+    ///     <item>3: All node, an upper bound</item>
+    /// </list>
+    /// </summary>
+    private readonly
+    (
+        ulong,  // Zobrist
+        int,    // Depth
+        int,    // Evaluation
+        int,    // Node type
+        Move    // Best move
+    )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
 
-    /*
-     * Transposition Table
-     * 
-     * to insert: ulong zobrist, int depth, int eval, int type, Move m
-     * TranspositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, eval, type, m);
-     * 
-     * to retrieve:
-     * (ulong TTzobrist, int TTdepth, int TTeval, int TTtype, Move TTm) = TranspositionTable[zobrist % TABLE_SIZE];
-     * 
-     * Types:
-     * 1: PV, exact evaluation
-     * 2: beta cutoff, lower bound
-     * 3: all node, upper bound
-     */
-    readonly (
-        ulong, // zobrist
-        int,   // depth
-        int,   // eval
-        int,   // type
-        Move
-        )[] TranspositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
-    readonly int[,] historyTable = new int[7, 64];
+    private readonly int[,] historyTable = new int[7, 64];
 
-    static readonly decimal[] Compressed =
+    private static readonly decimal[] compressed =
     {
         13673126176016846225011251738m,
         7771107839850903524308492827m,
@@ -74,46 +80,46 @@ public class MyBot : IChessBot
         8703222869073038635316421922m,
         1875100690648197429792415774m,
     };
-    readonly byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
+    private readonly byte[] pieceSquareTables = compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
 
-    int Eval()
+    private int EvaluateStatically()
     {
-        int mgScore = 0, egScore = 0, pieceCount = 0, i = 0;
-        for (; i < 12;)
-        {
-            PieceType type = (PieceType)1 + (i % 6);
-            bool isWhite = i++ < 6;
+        int mgScore = 0, egScore = 0, pieceCount = 0;
 
-            ulong bitboard = board.GetPieceBitboard(type, isWhite);
-            while (bitboard != 0)
+        // Loop through white and black pieces (1 for white, -1 for black)
+        foreach (var sign in new[] { 1, -1 })
+            for (var piece = 0; piece < 6; piece++)
             {
-                int idx = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
-                int file = idx % 8,
-                    rank = idx / 8;
+                ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, sign is 1);
+                while (bitboard != 0)
+                {
+                    int idx = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
+                    int file = idx % 8,
+                        rank = idx / 8;
 
-                // Use symmetrical squares (a2 <-> h2)
-                file ^= file > 3 ? 7 : 0;
+                    // Use symmetrical squares (a <-> h)
+                    file ^= file > 3 ? 7 : 0;
+                    // Flip the rank for white pieces
+                    rank ^= sign is 1 ? 7 : 0;
 
-                // Flip the rank for white pieces
-                rank ^= isWhite ? 7 : 0;
+                    int index = piece * 32 + rank * 4 + file;
 
-                int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
-                int index = pieceIndex * 32 + rank * 4 + file;
-
-                mgScore += sign * PieceSquareTables[index];
-                egScore += sign * PieceSquareTables[index + 192];
-                pieceCount++;
+                    mgScore += sign * pieceSquareTables[index];
+                    egScore += sign * pieceSquareTables[index + 192];
+                    pieceCount++;
+                }
             }
 
-        }
         int eval = (mgScore * pieceCount + egScore * (32 - pieceCount)) / 32;
-        // Add a tempo bonus
-        return 25 + (board.IsWhiteToMove ? eval : -eval);
+        // Tempo bonus for the current side to move
+        return 10 + (board.IsWhiteToMove ? eval : -eval);
     }
 
-    int QuiescenceSearch(int alpha, int beta)
+    private int QuiescenceSearch(int alpha, int beta)
     {
-        int eval = Eval();
+        qNodes++; // #DEBUG
+
+        int eval = EvaluateStatically();
 
         if (eval >= beta) return beta;
         if (alpha < eval) alpha = eval;
@@ -135,27 +141,32 @@ public class MyBot : IChessBot
         return alpha;
     }
 
-    void SortMoves(ref Span<Move> moves, Move tableMove)
+    private void SortMoves(ref Span<Move> moves, Move tableMove)
     {
         Span<int> sortKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
         {
-            Move m = moves[i];
-            int key = m.IsCapture // 3. MVV-LVA for captures
-                ? 1000 - 10 * (int)m.CapturePieceType - (int)m.MovePieceType
-                // 4. quiet moves with history heuristic
-                : 100000000 - historyTable[(int) m.MovePieceType, m.TargetSquare.Index];
-            if (m.IsPromotion) // 2. promotions
-                key = 1;
-            // TODO killer moves
-            if (m == tableMove) key = 0; // 1. TT move
-            sortKeys[i] = key;
+            Move move = moves[i];
+            sortKeys[i] = move switch
+            {
+                // 1. TT move
+                _ when move == tableMove => 0,
+                // 2. Promotions
+                { IsPromotion: true } => 1,
+                // 3. MVV-LVA for captures
+                { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType - (int)move.MovePieceType,
+                // 4. History heuristic for quiet moves
+                _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
+                // TODO: Killer moves
+            };
         }
         sortKeys.Sort(moves);
     }
 
-    int AlphaBeta(int depth, int alpha, int beta, bool root)
+    private int AlphaBeta(int depth, int alpha, int beta, bool root)
     {
+        nodes++; // #DEBUG
+
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
@@ -170,7 +181,8 @@ public class MyBot : IChessBot
         if (generatedMoves = board.IsInCheck()) // tricky token saved ;)
         {
             board.GetLegalMovesNonAlloc(ref moves);
-            if(moves.Length == 0) {
+            if (moves.Length == 0)
+            {
                 return -20000000 + board.PlyCount; // checkmate value
             }
         }
@@ -180,7 +192,7 @@ public class MyBot : IChessBot
             return 0;
 
         // query transposition table
-        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = TranspositionTable[TTidx];
+        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
         bool isTableHit = TTzobrist == zobrist;
 
         j = alpha; // save starting alpha to detect PV and all nodes
@@ -196,12 +208,11 @@ public class MyBot : IChessBot
             switch (TTtype)
             {
                 case 1:
-                    return TTeval;
                 case 2 when TTeval >= beta:
-                    return TTeval;
                 case 3 when TTeval < alpha:
                     return TTeval;
             }
+
         TTm = isTableHit ? TTm : Move.NullMove;
         // TTm is now "best move"
 
@@ -226,7 +237,7 @@ public class MyBot : IChessBot
             if (i >= beta)
             {
                 // update TT
-                TranspositionTable[TTidx] = (zobrist, depth, i, 2, m);
+                transpositionTable[TTidx] = (zobrist, depth, i, 2, m);
                 // update history heuristic
                 historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
                 return beta;
@@ -236,10 +247,10 @@ public class MyBot : IChessBot
                 alpha = i;
                 TTm = m;
                 if (root)
-                    BestMove = TTm;
+                    bestMove = TTm;
             }
         }
-        TranspositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
+        transpositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
         return alpha;
     }
 
@@ -249,17 +260,25 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
+        nodes = 0;  // #DEBUG
+        qNodes = 0; // #DEBUG
+
         done = false;
         int depth = 1;
         historyTable.Initialize(); // reset history table
 
-        BestMove = default;
+        bestMove = default;
 
         while (!done)
         {
-            AlphaBeta(depth, -100000000, 100000000, true);
+            var score = // #DEBUG
+                AlphaBeta(depth, -100000000, 100000000, true);
+
+            Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}"); // #DEBUG
+            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");          // #DEBUG
+
             depth++;
         }
-        return BestMove == default ? board.GetLegalMoves()[0] : BestMove;
+        return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
     }
 }

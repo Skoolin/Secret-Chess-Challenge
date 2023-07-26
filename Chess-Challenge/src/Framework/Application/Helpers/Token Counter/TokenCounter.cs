@@ -1,6 +1,9 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using System;
 using System.Collections.Generic;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ChessChallenge.Application
 {
@@ -15,14 +18,25 @@ namespace ChessChallenge.Application
             SyntaxKind.CommaToken,
             SyntaxKind.ReadOnlyKeyword,
             // only count open brace since I want to count the pair as a single token
-            SyntaxKind.CloseBraceToken, 
+            SyntaxKind.CloseBraceToken,
             SyntaxKind.CloseBracketToken,
             SyntaxKind.CloseParenToken
         });
 
         public static int CountTokens(string code)
         {
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(code);
+            var builder = new StringBuilder();
+            var lines = code.Split(Environment.NewLine, StringSplitOptions.None);
+
+            // Use a regular expression to filter out lines containing "#DEBUG"
+            var pattern = @"#DEBUG\b";
+            foreach (var line in lines)
+            {
+                if (!Regex.IsMatch(line, pattern))
+                    builder.AppendLine(line);
+            }
+
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(builder.ToString());
             SyntaxNode root = tree.GetRoot();
             return CountTokens(root);
         }
