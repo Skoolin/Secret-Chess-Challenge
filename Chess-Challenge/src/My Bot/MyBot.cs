@@ -144,7 +144,7 @@ public class MyBot : IChessBot
             int key = m.IsCapture // 3. MVV-LVA for captures
                 ? 1000 - 10 * (int)m.CapturePieceType - (int)m.MovePieceType
                 // 4. quiet moves with history heuristic
-                : 100000000 - historyTable[(int) m.MovePieceType, m.TargetSquare.Index];
+                : 100000000 - historyTable[(int)m.MovePieceType, m.TargetSquare.Index];
             if (m.IsPromotion) // 2. promotions
                 key = 1;
             // TODO killer moves
@@ -170,7 +170,8 @@ public class MyBot : IChessBot
         if (generatedMoves = board.IsInCheck()) // tricky token saved ;)
         {
             board.GetLegalMovesNonAlloc(ref moves);
-            if(moves.Length == 0) {
+            if (moves.Length == 0)
+            {
                 return -20000000 + board.PlyCount; // checkmate value
             }
         }
