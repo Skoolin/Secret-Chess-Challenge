@@ -5,16 +5,16 @@ using System.Linq;
 public class MyBot : IChessBot
 {
     // put these here to save function definition and call footprint
-    Timer timer;
-    Board board;
+    private Timer timer;
+    private Board board;
 
-    Move BestMove;
+    private Move BestMove;
 
-    bool done;
+    private bool done;
 
 
     // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
-    const ulong TABLE_SIZE = 1 << 23;
+    private const ulong TABLE_SIZE = 1 << 23;
 
     /*
      * Transposition Table
@@ -30,16 +30,16 @@ public class MyBot : IChessBot
      * 2: beta cutoff, lower bound
      * 3: all node, upper bound
      */
-    readonly (
+    private readonly (
         ulong, // zobrist
         int,   // depth
         int,   // eval
         int,   // type
         Move
         )[] TranspositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
-    readonly int[,] historyTable = new int[7, 64];
+    private readonly int[,] historyTable = new int[7, 64];
 
-    static readonly decimal[] Compressed =
+    private static readonly decimal[] Compressed =
     {
         13673126176016846225011251738m,
         7771107839850903524308492827m,
@@ -74,9 +74,9 @@ public class MyBot : IChessBot
         8703222869073038635316421922m,
         1875100690648197429792415774m,
     };
-    readonly byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
+    private readonly byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
 
-    int Eval()
+    private int Eval()
     {
         int mgScore = 0, egScore = 0, pieceCount = 0, i = 0;
         for (; i < 12;)
@@ -111,7 +111,7 @@ public class MyBot : IChessBot
         return 25 + (board.IsWhiteToMove ? eval : -eval);
     }
 
-    int QuiescenceSearch(int alpha, int beta)
+    private int QuiescenceSearch(int alpha, int beta)
     {
         int eval = Eval();
 
@@ -135,7 +135,7 @@ public class MyBot : IChessBot
         return alpha;
     }
 
-    void SortMoves(ref Span<Move> moves, Move tableMove)
+    private void SortMoves(ref Span<Move> moves, Move tableMove)
     {
         Span<int> sortKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
@@ -154,7 +154,7 @@ public class MyBot : IChessBot
         sortKeys.Sort(moves);
     }
 
-    int AlphaBeta(int depth, int alpha, int beta, bool root)
+    private int AlphaBeta(int depth, int alpha, int beta, bool root)
     {
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
