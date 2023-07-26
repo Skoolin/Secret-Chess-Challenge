@@ -1,9 +1,8 @@
 ﻿using ChessChallenge.API;
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-public class SkolinBotOld : IChessBot
+public class Skolin : IChessBot
 {
     private bool done;
 
@@ -269,7 +268,7 @@ public class SkolinBotOld : IChessBot
     */
 
 
-    public SkolinBotOld()
+    public Skolin()
     {
         int i = 0;
 

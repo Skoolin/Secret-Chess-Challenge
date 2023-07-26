@@ -1,5 +1,4 @@
 ﻿using ChessChallenge.Chess;
-using ChessChallenge.Example;
 using Raylib_cs;
 using System;
 using System.IO;
@@ -208,7 +207,7 @@ namespace ChessChallenge.Application
             return type switch
             {
                 PlayerType.MyBot => new ChessPlayer(new MyBot(), type, GameDurationMilliseconds),
-                PlayerType.EvilBot => new ChessPlayer(new EvilBot(), type, GameDurationMilliseconds),
+                PlayerType.EvilBot => new ChessPlayer(new Evil(), type, GameDurationMilliseconds),
                 _ => new ChessPlayer(new HumanPlayer(boardUI), type)
             };
         }

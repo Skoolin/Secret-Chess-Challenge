@@ -17,7 +17,7 @@ namespace ChessChallenge.Application
         {
             if (args.Contains("--uci"))
             {
-                IChessBot bot = args.Contains("--evil") ? new SkolinBotOld() : new MyBot();
+                IChessBot bot = args.Contains("--evil") ? new Skolin() : new MyBot();
                 new UCI(bot).StartUciMessageLoop();
                 return;
             }
