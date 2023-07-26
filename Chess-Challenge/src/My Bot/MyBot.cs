@@ -148,16 +148,19 @@ public class MyBot : IChessBot
         Span<int> sortKeys = stackalloc int[moves.Length];
         for (int i = 0; i < moves.Length; i++)
         {
-            Move m = moves[i];
-            int key = m.IsCapture // 3. MVV-LVA for captures
-                ? 1000 - 10 * (int)m.CapturePieceType - (int)m.MovePieceType
-                // 4. quiet moves with history heuristic
-                : 100000000 - historyTable[(int)m.MovePieceType, m.TargetSquare.Index];
-            if (m.IsPromotion) // 2. promotions
-                key = 1;
-            // TODO killer moves
-            if (m == tableMove) key = 0; // 1. TT move
-            sortKeys[i] = key;
+            Move move = moves[i];
+            sortKeys[i] = move switch
+            {
+                // 1. TT move
+                _ when move == tableMove => 0,
+                // 2. Promotions
+                { IsPromotion: true } => 1,
+                // 3. MVV-LVA for captures
+                { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType - (int)move.MovePieceType,
+                // 4. History heuristic for quiet moves
+                _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
+                // TODO: Killer moves
+            };
         }
         sortKeys.Sort(moves);
     }
