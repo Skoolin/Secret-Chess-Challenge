@@ -12,6 +12,8 @@ public class MyBot : IChessBot
 
     private bool done;
 
+    private int nodes;   // #DEBUG
+    private int qNodes;  // #DEBUG
 
     // can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
     private const ulong TABLE_SIZE = 1 << 23;
@@ -113,6 +115,8 @@ public class MyBot : IChessBot
 
     private int QuiescenceSearch(int alpha, int beta)
     {
+        qNodes++; // #DEBUG
+
         int eval = Eval();
 
         if (eval >= beta) return beta;
@@ -156,6 +160,8 @@ public class MyBot : IChessBot
 
     private int AlphaBeta(int depth, int alpha, int beta, bool root)
     {
+        nodes++; // #DEBUG
+
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
@@ -250,6 +256,9 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
+        nodes = 0;  // #DEBUG
+        qNodes = 0; // #DEBUG
+
         done = false;
         int depth = 1;
         historyTable.Initialize(); // reset history table
@@ -258,7 +267,12 @@ public class MyBot : IChessBot
 
         while (!done)
         {
-            AlphaBeta(depth, -100000000, 100000000, true);
+            var score = // #DEBUG
+                AlphaBeta(depth, -100000000, 100000000, true);
+
+            Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}"); // #DEBUG
+            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {BestMove}");          // #DEBUG
+
             depth++;
         }
         return BestMove == default ? board.GetLegalMoves()[0] : BestMove;
