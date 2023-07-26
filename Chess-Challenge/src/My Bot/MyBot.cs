@@ -8,7 +8,7 @@ public class MyBot : IChessBot
     private Timer timer;
     private Board board;
 
-    private Move BestMove;
+    private Move bestMove;
 
     private bool done;
 
@@ -38,10 +38,10 @@ public class MyBot : IChessBot
         int,   // eval
         int,   // type
         Move
-        )[] TranspositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
+        )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
     private readonly int[,] historyTable = new int[7, 64];
 
-    private static readonly decimal[] Compressed =
+    private static readonly decimal[] compressed =
     {
         13673126176016846225011251738m,
         7771107839850903524308492827m,
@@ -76,7 +76,7 @@ public class MyBot : IChessBot
         8703222869073038635316421922m,
         1875100690648197429792415774m,
     };
-    private readonly byte[] PieceSquareTables = Compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
+    private readonly byte[] pieceSquareTables = compressed.SelectMany(decimal.GetBits).Where((_, i) => i % 4 != 3).SelectMany(BitConverter.GetBytes).ToArray();
 
     private int Eval()
     {
@@ -102,8 +102,8 @@ public class MyBot : IChessBot
                 int sign = isWhite ? 1 : -1, pieceIndex = (int)type - 1;
                 int index = pieceIndex * 32 + rank * 4 + file;
 
-                mgScore += sign * PieceSquareTables[index];
-                egScore += sign * PieceSquareTables[index + 192];
+                mgScore += sign * pieceSquareTables[index];
+                egScore += sign * pieceSquareTables[index + 192];
                 pieceCount++;
             }
 
@@ -187,7 +187,7 @@ public class MyBot : IChessBot
             return 0;
 
         // query transposition table
-        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = TranspositionTable[TTidx];
+        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
         bool isTableHit = TTzobrist == zobrist;
 
         j = alpha; // save starting alpha to detect PV and all nodes
@@ -233,7 +233,7 @@ public class MyBot : IChessBot
             if (i >= beta)
             {
                 // update TT
-                TranspositionTable[TTidx] = (zobrist, depth, i, 2, m);
+                transpositionTable[TTidx] = (zobrist, depth, i, 2, m);
                 // update history heuristic
                 historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
                 return beta;
@@ -243,10 +243,10 @@ public class MyBot : IChessBot
                 alpha = i;
                 TTm = m;
                 if (root)
-                    BestMove = TTm;
+                    bestMove = TTm;
             }
         }
-        TranspositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
+        transpositionTable[TTidx] = (zobrist, depth, alpha, j == alpha ? 3 : 1, TTm);
         return alpha;
     }
 
@@ -263,7 +263,7 @@ public class MyBot : IChessBot
         int depth = 1;
         historyTable.Initialize(); // reset history table
 
-        BestMove = default;
+        bestMove = default;
 
         while (!done)
         {
@@ -271,10 +271,10 @@ public class MyBot : IChessBot
                 AlphaBeta(depth, -100000000, 100000000, true);
 
             Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}"); // #DEBUG
-            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {BestMove}");          // #DEBUG
+            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");          // #DEBUG
 
             depth++;
         }
-        return BestMove == default ? board.GetLegalMoves()[0] : BestMove;
+        return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
     }
 }
