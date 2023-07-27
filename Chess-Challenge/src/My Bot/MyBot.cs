@@ -103,7 +103,7 @@ public class MyBot : IChessBot
         if (alpha < eval) alpha = eval;
 
         Span<Move> moves = stackalloc Move[256];
-        board.GetLegalMovesNonAlloc(ref moves, !board.IsInCheck());
+        board.GetLegalMovesNonAlloc(ref moves, true);
 
         SortMoves(ref moves, default);
         foreach (var move in moves)
@@ -154,13 +154,13 @@ public class MyBot : IChessBot
         if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
 
+        // Check extension in case of forcing sequences
+        if (board.IsInCheck())
+            depth += 1;
+
         // Also early return without generating moves if we're dropping in the QSearch
-        // TODO do we want to just extend all checks instead of just depth 0 checks?
         if (depth == 0)
-            if (board.IsInCheck())
-                depth += 1;
-            else
-                return QuiescenceSearch(alpha, beta);
+            return QuiescenceSearch(alpha, beta);
 
         Span<Move> moves = stackalloc Move[256];
         board.GetLegalMovesNonAlloc(ref moves);
