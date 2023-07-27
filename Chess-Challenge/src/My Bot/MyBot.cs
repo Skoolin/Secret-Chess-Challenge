@@ -138,7 +138,6 @@ public class MyBot : IChessBot
                 _ when killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move => 10_000,
                 // 5. History heuristic for quiet moves
                 _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
-                // TODO: Killer moves
             };
         }
         sortKeys.Sort(moves);
