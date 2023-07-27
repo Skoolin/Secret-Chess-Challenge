@@ -266,7 +266,7 @@ public class MyBot : IChessBot
             var score = 5 * // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, false);
 
-            Console.Write($"info depth {depth} score cs {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
+            Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
             Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");           // #DEBUG
         }
 
