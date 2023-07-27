@@ -44,6 +44,7 @@ public class MyBot : IChessBot
     )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
 
     private readonly int[,] historyTable = new int[7, 64];
+    private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
 
     private static readonly decimal[] compressed =
     {
@@ -133,7 +134,9 @@ public class MyBot : IChessBot
                 { IsPromotion: true, PromotionPieceType: PieceType.Queen } => 1,
                 // 3. MVV-LVA for captures
                 { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType,
-                // 4. History heuristic for quiet moves
+                // 4. killer heuristic for quiet moves
+                _ when killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move => 10_000,
+                // 5. History heuristic for quiet moves
                 _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
                 // TODO: Killer moves
             };
@@ -233,7 +236,11 @@ public class MyBot : IChessBot
                 // Save beta cutoff to the TT
                 transpositionTable[TTidx] = (zobrist, depth, score, 2, m);
                 // TODO: Should we update history for quiet moves only to avoid noise?
-                historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
+                if (!m.IsCapture)
+                {
+                    historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
+                    killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
+                }
                 return beta;
             }
             if (score > alpha)
@@ -268,8 +275,6 @@ public class MyBot : IChessBot
 
             Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
             Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");           // #DEBUG
-
-            if (depth >= 64) break; // #DEBUG
         }
 
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
