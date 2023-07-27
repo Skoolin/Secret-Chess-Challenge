@@ -132,7 +132,7 @@ public class MyBot : IChessBot
                 // 2. Promotions
                 { IsPromotion: true } => 1,
                 // 3. MVV-LVA for captures
-                { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType - (int)move.MovePieceType,
+                { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType,
                 // 4. History heuristic for quiet moves
                 _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
                 // TODO: Killer moves
@@ -179,6 +179,14 @@ public class MyBot : IChessBot
             TTm = default;
         else if (!root && TTdepth >= depth && (TTtype is 1 || TTtype is 2 && TTeval >= beta || TTtype is 3 && TTeval <= alpha))
             return TTeval;
+
+        // Null Move Pruning: check if we beat beta even without moving
+        if (depth > 2 && !root && board.TrySkipTurn())
+        {
+            int score = -AlphaBeta(depth - 3, -beta, -beta + 1, false);
+            board.UndoSkipTurn();
+            if (score >= beta) return beta;
+        }
 
         // Save starting alpha to detect PV and all nodes
         var oldAlpha = alpha;
