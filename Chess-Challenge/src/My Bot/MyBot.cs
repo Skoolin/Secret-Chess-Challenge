@@ -196,6 +196,11 @@ public class MyBot : IChessBot
         foreach (Move m in moves)
         {
             board.MakeMove(m);
+
+            // internal iterative deepening
+            if (depth >= 5)
+                AlphaBeta(depth - 3, -beta, -alpha, false);
+
             int score = -AlphaBeta(depth - 1, -beta, -alpha, false);
             board.UndoMove(m);
 
