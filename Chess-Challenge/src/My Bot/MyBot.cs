@@ -268,6 +268,8 @@ public class MyBot : IChessBot
 
             Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
             Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");           // #DEBUG
+
+            if (depth >= 64) break; // #DEBUG
         }
 
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
