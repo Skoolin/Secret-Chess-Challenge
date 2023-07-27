@@ -129,8 +129,8 @@ public class MyBot : IChessBot
             {
                 // 1. TT move
                 _ when move == tableMove => 0,
-                // 2. Promotions
-                { IsPromotion: true } => 1,
+                // 2. Queen promotion, don't bother with underpromotions
+                { IsPromotion: true, PromotionPieceType: PieceType.Queen } => 1,
                 // 3. MVV-LVA for captures
                 { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType,
                 // 4. History heuristic for quiet moves
