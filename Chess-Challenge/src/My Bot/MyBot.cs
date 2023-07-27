@@ -233,7 +233,6 @@ public class MyBot : IChessBot
             {
                 // Save beta cutoff to the TT
                 transpositionTable[TTidx] = (zobrist, depth, score, 2, m);
-                // TODO: Should we update history for quiet moves only to avoid noise?
                 if (!m.IsCapture)
                 {
                     historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
