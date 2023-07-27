@@ -89,9 +89,8 @@ public class MyBot : IChessBot
                 }
             }
 
-        int eval = (mgScore * phase + egScore * (24 - phase)) / 24;
-        // Tempo bonus for the current side to move
-        return 4 + (board.IsWhiteToMove ? eval : -eval);
+        // Interpolate between game phases and add a bonus for the side to move
+        return 4 + (mgScore * phase + egScore * (24 - phase)) / 24 * (board.IsWhiteToMove ? 1 : -1);
     }
 
     private int QuiescenceSearch(int alpha, int beta)
