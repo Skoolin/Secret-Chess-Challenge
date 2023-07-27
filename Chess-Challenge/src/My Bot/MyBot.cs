@@ -141,7 +141,7 @@ public class MyBot : IChessBot
         sortKeys.Sort(moves);
     }
 
-    private int AlphaBeta(int depth, int alpha, int beta, bool root)
+    private int AlphaBeta(int depth, int alpha, int beta, bool root, bool nullMoveAllowed = true)
     {
         nodes++; // #DEBUG
 
@@ -181,9 +181,9 @@ public class MyBot : IChessBot
             return TTeval;
 
         // Null Move Pruning: check if we beat beta even without moving
-        if (depth > 2 && !root && board.TrySkipTurn())
+        if (nullMoveAllowed && depth > 2 && board.TrySkipTurn())
         {
-            int score = -AlphaBeta(depth - 3, -beta, -beta + 1, false);
+            int score = -AlphaBeta(depth - 3, -beta, -beta + 1, false, false);
             board.UndoSkipTurn();
             if (score >= beta) return beta;
         }
@@ -242,7 +242,7 @@ public class MyBot : IChessBot
 
         for (int depth = 1; !terminated; depth++)
         {
-            AlphaBeta(depth, -100_000_000, 100_000_000, true);
+            AlphaBeta(depth, -100_000_000, 100_000_000, true, false);
 
             Console.Write($"info depth {depth} nodes {nodes} qnodes {qNodes}");         // #DEBUG
             Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}"); // #DEBUG
