@@ -270,6 +270,9 @@ public class MyBot : IChessBot
             var score = 5 * // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, false);
 
+            // Search was terminated at root as it was a repeated position or a 50 move draw
+            if (bestMove == default) break; // #DEBUG
+
             Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
             Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");           // #DEBUG
         }
