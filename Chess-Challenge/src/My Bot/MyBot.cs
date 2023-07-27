@@ -154,6 +154,7 @@ public class MyBot : IChessBot
             return 0;
 
         // Also early return without generating moves if we're dropping in the QSearch
+        // TODO do we want to just extend all checks instead of just depth 0 checks?
         if (depth == 0)
             if (board.IsInCheck())
                 depth += 1;
@@ -193,6 +194,10 @@ public class MyBot : IChessBot
 
         SortMoves(ref moves, TTm);
 
+        // needed for late move reductions
+        //bool isCheck = board.IsInCheck();
+        int moveCount = 0;
+
         foreach (Move m in moves)
         {
             board.MakeMove(m);
@@ -200,6 +205,22 @@ public class MyBot : IChessBot
             // internal iterative deepening
             if (depth >= 5)
                 AlphaBeta(depth - 3, -beta, -alpha, false);
+
+            // TODO is this too aggressive? it wins in self play, but other engines
+            // might be able to abuse this. Maybe require at least !isCheck?
+            // late move reduction
+            if (depth > 2
+                && moveCount++ > 4
+                && !root
+                //&& !isCheck
+                //&& !board.IsInCheck()
+                //&& !m.IsCapture
+                && alpha >= -AlphaBeta(depth - 3, -beta, -alpha, false)
+                )
+            {
+                board.UndoMove(m);
+                continue;
+            }
 
             int score = -AlphaBeta(depth - 1, -beta, -alpha, false);
             board.UndoMove(m);
@@ -242,10 +263,11 @@ public class MyBot : IChessBot
 
         for (int depth = 1; !terminated; depth++)
         {
+            var score = 5 * // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, false);
 
-            Console.Write($"info depth {depth} nodes {nodes} qnodes {qNodes}");         // #DEBUG
-            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}"); // #DEBUG
+            Console.Write($"info depth {depth} score cs {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
+            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");           // #DEBUG
         }
 
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
