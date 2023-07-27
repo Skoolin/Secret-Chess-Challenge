@@ -16,7 +16,7 @@ public class MyBot : IChessBot
     private bool terminated;
 
     // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
-    private const ulong TABLE_SIZE = 1 << 23;
+    private const ulong TABLE_SIZE = 1 << 22;
 
     /// <summary>
     /// Transposition Table for caching previously computed positions during search.
