@@ -90,7 +90,7 @@ public class MyBot : IChessBot
 
         int eval = (mgScore * phase + egScore * (24 - phase)) / 24;
         // Tempo bonus for the current side to move
-        return 10 + (board.IsWhiteToMove ? eval : -eval);
+        return 4 + (board.IsWhiteToMove ? eval : -eval);
     }
 
     private int QuiescenceSearch(int alpha, int beta)
