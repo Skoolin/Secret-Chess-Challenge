@@ -255,9 +255,9 @@ public class MyBot : IChessBot
     }
 
     [NoTokenCount]
-    String GetPV(Move move, int limit)
+    private string GetPV(Move move, int limit)
     {
-        String res = " " + move.ToString().Split(' ')[1].Substring(1,4);
+        var res = " " + move.ToUCIString();
         board.MakeMove(move);
         var TTentry = transpositionTable[board.ZobristKey % TABLE_SIZE];
         if (limit > 1 && TTentry.Item1 == board.ZobristKey)
@@ -265,7 +265,7 @@ public class MyBot : IChessBot
             Move m = TTentry.Item5;
             if (board.GetLegalMoves().Contains(m))
             {
-                res += GetPV(m, limit -1);
+                res += GetPV(m, limit - 1);
             }
         }
         board.UndoMove(move);

@@ -86,7 +86,7 @@ public class UCI
         var timer = new Timer(main + increment);
 
         var bestMove = _bot.Think(_board, timer);
-        var uciMove = GetUciMoveRepresentation(bestMove);
+        var uciMove = bestMove.ToUCIString();
 
         Console.WriteLine($"bestmove {uciMove}");
     }
@@ -114,15 +114,5 @@ public class UCI
             var move = new Move(tokens[i], _board);
             _board.MakeMove(move);
         }
-    }
-
-    /// <summary>
-    /// Returns the UCI string representation of the given move.
-    /// </summary>
-    private string GetUciMoveRepresentation(Move move)
-    {
-        // API.Move.ToString() returns redundant information (e.g. "Move: 'e2e4'")
-        // so just use the underlying Chess.Move struct to only get the UCI string
-        return Chess.MoveUtility.GetMoveNameUCI(new Chess.Move(move.RawValue));
     }
 }

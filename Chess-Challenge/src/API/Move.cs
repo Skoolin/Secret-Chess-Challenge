@@ -53,7 +53,12 @@ namespace ChessChallenge.API
 			pieceTypeData = (ushort)(movePieceType | (capturePieceType << 3));
 		}
 
-		public override string ToString()
+        public string ToUCIString()
+        {
+            return MoveUtility.GetMoveNameUCI(move);
+        }
+
+        public override string ToString()
 		{
 			string moveName = MoveUtility.GetMoveNameUCI(move);
 			return $"Move: '{moveName}'";
