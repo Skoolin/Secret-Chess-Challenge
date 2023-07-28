@@ -1,6 +1,7 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
+using static ChessChallenge.Application.TokenCounter; // #DEBUG
 
 public class MyBot : IChessBot
 {
@@ -253,6 +254,24 @@ public class MyBot : IChessBot
         return alpha;
     }
 
+    [NoTokenCount]
+    String GetPV(Move move)
+    {
+        String res = " " + move.ToString().Split(' ')[1].Substring(1,4);
+        board.MakeMove(move);
+        var TTentry = transpositionTable[board.ZobristKey % TABLE_SIZE];
+        if (TTentry.Item1 == board.ZobristKey)
+        {
+            Move m = TTentry.Item5;
+            if (board.GetLegalMoves().Contains(m))
+            {
+                res += GetPV(m);
+            }
+        }
+        board.UndoMove(move);
+        return res;
+    }
+
     public Move Think(Board _board, Timer _timer)
     {
         timer = _timer;
@@ -265,13 +284,14 @@ public class MyBot : IChessBot
         bestMove = default;
         terminated = false;
 
-        for (int depth = 1; !terminated; depth++)
+        for (int depth = 0; !terminated && ++depth < 64;)
         {
             var score = 5 * // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, false);
 
             Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
-            Console.WriteLine($" time {timer.MillisecondsElapsedThisTurn} {bestMove}");           // #DEBUG
+            Console.Write($" time {timer.MillisecondsElapsedThisTurn}");                          // #DEBUG
+            Console.WriteLine($" pv{GetPV(bestMove)}");                                           // #DEBUG
         }
 
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;

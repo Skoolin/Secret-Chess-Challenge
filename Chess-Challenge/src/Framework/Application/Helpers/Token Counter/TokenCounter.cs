@@ -1,7 +1,9 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
+
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -41,17 +43,35 @@ namespace ChessChallenge.Application
             return CountTokens(root);
         }
 
+        public class NoTokenCount : Attribute
+        {
+        }
+
         static int CountTokens(SyntaxNodeOrToken syntaxNode)
         {
             SyntaxKind kind = syntaxNode.Kind();
             int numTokensInChildren = 0;
 
 
+            if (syntaxNode.IsKind(SyntaxKind.MethodDeclaration))
+            {
+                MethodDeclarationSyntax method = (MethodDeclarationSyntax)syntaxNode;
+
+                // we want to exclude all methods with attribute Debug!
+                foreach (var attributeList in method.AttributeLists)
+                {
+                    foreach (var attribute in attributeList.Attributes)
+                    {
+                        // TODO is there a better way then this?
+                        if (attribute.ToString() == "NoTokenCount")
+                            return 0;
+                    }
+                }
+            }
             foreach (var child in syntaxNode.ChildNodesAndTokens())
             {
                 numTokensInChildren += CountTokens(child);
             }
-
             if (syntaxNode.IsToken && !tokensToIgnore.Contains(kind))
             {
                 //Console.WriteLine(kind + "  " + syntaxNode.ToString());
