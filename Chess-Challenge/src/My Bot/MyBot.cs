@@ -255,17 +255,17 @@ public class MyBot : IChessBot
     }
 
     [NoTokenCount]
-    String GetPV(Move move)
+    String GetPV(Move move, int limit)
     {
         String res = " " + move.ToString().Split(' ')[1].Substring(1,4);
         board.MakeMove(move);
         var TTentry = transpositionTable[board.ZobristKey % TABLE_SIZE];
-        if (TTentry.Item1 == board.ZobristKey)
+        if (limit > 1 && TTentry.Item1 == board.ZobristKey)
         {
             Move m = TTentry.Item5;
             if (board.GetLegalMoves().Contains(m))
             {
-                res += GetPV(m);
+                res += GetPV(m, limit -1);
             }
         }
         board.UndoMove(move);
@@ -294,7 +294,7 @@ public class MyBot : IChessBot
 
             Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
             Console.Write($" time {timer.MillisecondsElapsedThisTurn}");                          // #DEBUG
-            Console.WriteLine($" pv{GetPV(bestMove)}");                                           // #DEBUG
+            Console.WriteLine($" pv{GetPV(bestMove, 8)}");                                       // #DEBUG
         }
 
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
