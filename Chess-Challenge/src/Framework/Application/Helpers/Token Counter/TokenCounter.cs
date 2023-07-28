@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -11,6 +11,11 @@ namespace ChessChallenge.Application
 {
     public static class TokenCounter
     {
+        /// <summary>
+        /// Use this attribute to exclude a method from the token count.
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
+        public sealed class NoTokenCount : Attribute { }
 
         static readonly HashSet<SyntaxKind> tokensToIgnore = new(new SyntaxKind[]
         {
@@ -43,30 +48,17 @@ namespace ChessChallenge.Application
             return CountTokens(root);
         }
 
-        public class NoTokenCount : Attribute
-        {
-        }
-
         static int CountTokens(SyntaxNodeOrToken syntaxNode)
         {
             SyntaxKind kind = syntaxNode.Kind();
             int numTokensInChildren = 0;
 
-
             if (syntaxNode.IsKind(SyntaxKind.MethodDeclaration))
             {
-                MethodDeclarationSyntax method = (MethodDeclarationSyntax)syntaxNode;
-
-                // we want to exclude all methods with attribute Debug!
-                foreach (var attributeList in method.AttributeLists)
-                {
-                    foreach (var attribute in attributeList.Attributes)
-                    {
-                        // TODO is there a better way then this?
-                        if (attribute.ToString() == "NoTokenCount")
-                            return 0;
-                    }
-                }
+                // we want to exclude all methods with attribute NoTokenCount!
+                var method = (MethodDeclarationSyntax?)syntaxNode;
+                if (method.AttributeLists.Any(list => list.Attributes.Any(attr => attr.ToString() is nameof(NoTokenCount))))
+                    return 0;
             }
             foreach (var child in syntaxNode.ChildNodesAndTokens())
             {
