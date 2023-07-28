@@ -272,6 +272,14 @@ public class MyBot : IChessBot
         return res;
     }
 
+    [NoTokenCount]
+    private void SendReport(int depth, int score)
+    {
+        Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");
+        Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
+        Console.WriteLine($" pv{GetPV(bestMove, 8)}");
+    }
+
     public Move Think(Board _board, Timer _timer)
     {
         timer = _timer;
@@ -291,10 +299,7 @@ public class MyBot : IChessBot
 
             // Search was terminated at root as it was a repeated position or a 50 move draw
             if (bestMove == default) break; // #DEBUG
-
-            Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");  // #DEBUG
-            Console.Write($" time {timer.MillisecondsElapsedThisTurn}");                          // #DEBUG
-            Console.WriteLine($" pv{GetPV(bestMove, 8)}");                                       // #DEBUG
+            SendReport(depth, score);       // #DEBUG
         }
 
         return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
