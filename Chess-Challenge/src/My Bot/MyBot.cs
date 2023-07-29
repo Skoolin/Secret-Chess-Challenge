@@ -72,23 +72,28 @@ public class MyBot : IChessBot
     {
         int mgScore = 0, egScore = 0, phase = 0;
 
-        // Loop through white and black pieces (1 for white, -1 for black)
-        foreach (var sign in new[] { 1, -1 })
+        // Colors are represented by the xor value of the PSQT flip
+        foreach (var xor in new[] { 56, 0 })
+        {
             for (var piece = 0; piece < 6; piece++)
             {
-                ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, sign is 1);
+                ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
                 while (bitboard != 0)
                 {
-                    int index = piece * 64                                    // table start index
-                        + (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // square index in the table
-                        ^ (sign is 1 ? 56 : 0));                              // flip board for white pieces
+                    int index = piece * 64                                   // table start index
+                        + BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // square index in the table
+                        ^ xor;                                               // flip board for white pieces
 
-                    mgScore += sign * pieceSquareTables[index];
-                    egScore += sign * pieceSquareTables[index + 384];
+                    mgScore += pieceSquareTables[index];
+                    egScore += pieceSquareTables[index + 384];
                     // Save 8 tokens by packing a lookup table into a single int
                     phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
                 }
             }
+
+            mgScore = -mgScore;
+            egScore = -egScore;
+        }
 
         // Interpolate between game phases and add a bonus for the side to move
         return 4 + (mgScore * phase + egScore * (24 - phase)) / 24 * (board.IsWhiteToMove ? 1 : -1);
