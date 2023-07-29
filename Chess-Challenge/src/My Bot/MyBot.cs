@@ -140,6 +140,13 @@ public class MyBot : IChessBot
             if (eval >= beta) return beta;
             if (alpha < eval) alpha = eval;
         }
+        // reverse futility pruning
+        else if(!board.IsInCheck()
+        && depth < 8
+        && beta <= eval - 20*depth
+        )
+        return eval;
+        
         // Early return without generating moves for draw positions
         // TODO: Should we check for insufficient material here?
         else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
