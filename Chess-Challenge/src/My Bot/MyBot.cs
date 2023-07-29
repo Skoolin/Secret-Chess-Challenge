@@ -5,9 +5,8 @@ using static ChessChallenge.Application.TokenCounter; // #DEBUG
 
 public class MyBot : IChessBot
 {
-    // Node counts for debugging purposes
+    // Node counter for debugging purposes
     private int nodes;   // #DEBUG
-    private int qNodes;  // #DEBUG
 
     // Save received search parameters to simplify function signatures
     private Timer timer;
@@ -99,32 +98,6 @@ public class MyBot : IChessBot
         return 4 + (mgScore * phase + egScore * (24 - phase)) / 24 * (board.IsWhiteToMove ? 1 : -1);
     }
 
-    private int QuiescenceSearch(int alpha, int beta)
-    {
-        qNodes++; // #DEBUG
-
-        int eval = EvaluateStatically();
-
-        if (eval >= beta) return beta;
-        if (alpha < eval) alpha = eval;
-
-        Span<Move> moves = stackalloc Move[256];
-        board.GetLegalMovesNonAlloc(ref moves, true);
-
-        SortMoves(ref moves, default);
-        foreach (var move in moves)
-        {
-            board.MakeMove(move);
-            int score = -QuiescenceSearch(-beta, -alpha);
-            board.UndoMove(move);
-
-            if (score >= beta) return beta;
-            if (score > alpha) alpha = score;
-        }
-
-        return alpha;
-    }
-
     private void SortMoves(ref Span<Move> moves, Move tableMove)
     {
         Span<int> sortKeys = stackalloc int[moves.Length];
@@ -155,24 +128,28 @@ public class MyBot : IChessBot
         // Check if time is up
         terminated = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
 
-        // Early return without generating moves for draw positions
-        // TODO: Should we check for insufficient material here?
-        if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
-            return 0;
-
         // Check extension in case of forcing sequences
-        if (board.IsInCheck())
+        if (depth >= 0 && board.IsInCheck())
             depth += 1;
 
-        // Also early return without generating moves if we're dropping in the QSearch
-        if (depth == 0)
-            return QuiescenceSearch(alpha, beta);
+        var inQSearch = depth <= 0;
+        if (inQSearch)
+        {
+            int eval = EvaluateStatically();
+
+            if (eval >= beta) return beta;
+            if (alpha < eval) alpha = eval;
+        }
+        // Early return without generating moves for draw positions
+        // TODO: Should we check for insufficient material here?
+        else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
+            return 0;
 
         Span<Move> moves = stackalloc Move[256];
-        board.GetLegalMovesNonAlloc(ref moves);
+        board.GetLegalMovesNonAlloc(ref moves, inQSearch);
 
         // Checkmate or stalemate
-        if (moves.Length == 0)
+        if (!inQSearch && moves.Length == 0)
             return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
 
         // Transposition table lookup
@@ -238,7 +215,9 @@ public class MyBot : IChessBot
             if (score >= beta)
             {
                 // Save beta cutoff to the TT
-                transpositionTable[TTidx] = (zobrist, depth, score, 2, m);
+                if (!inQSearch)
+                    transpositionTable[TTidx] = (zobrist, depth, score, 2, m);
+
                 if (!m.IsCapture)
                 {
                     historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
@@ -255,7 +234,9 @@ public class MyBot : IChessBot
             }
         }
 
-        transpositionTable[TTidx] = (zobrist, depth, alpha, oldAlpha == alpha ? 3 : 1, TTm);
+        if (!inQSearch)
+            transpositionTable[TTidx] = (zobrist, depth, alpha, oldAlpha == alpha ? 3 : 1, TTm);
+
         return alpha;
     }
 
@@ -280,7 +261,7 @@ public class MyBot : IChessBot
     [NoTokenCount]
     private void SendReport(int depth, int score)
     {
-        Console.Write($"info depth {depth} score cp {score} nodes {nodes} qnodes {qNodes}");
+        Console.Write($"info depth {depth} score cp {score} nodes {nodes}");
         Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
         Console.WriteLine($" pv{GetPV(bestMove, 8)}");
     }
@@ -291,7 +272,6 @@ public class MyBot : IChessBot
         board = _board;
 
         nodes = 0;  // #DEBUG
-        qNodes = 0; // #DEBUG
 
         historyTable.Initialize();
         bestMove = default;
