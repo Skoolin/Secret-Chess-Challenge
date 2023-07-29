@@ -133,10 +133,10 @@ public class MyBot : IChessBot
             depth += 1;
 
         var inQSearch = depth <= 0;
+
+        int eval = EvaluateStatically();
         if (inQSearch)
         {
-            int eval = EvaluateStatically();
-
             if (eval >= beta) return beta;
             if (alpha < eval) alpha = eval;
         }
@@ -180,10 +180,22 @@ public class MyBot : IChessBot
 
         // needed for late move reductions
         //bool isCheck = board.IsInCheck();
-        int moveCount = 0;
+        int moveCount = -1;
 
         foreach (Move m in moves)
         {
+            moveCount++;
+            // futility pruning:
+            // if static eval is far below alpha and this move doesn't seem likely to raise it, 
+            // this and later moves probably won't.
+            if(!root
+            && depth < 8
+            && moveCount > 0 // don't prune TT move
+            && eval + 20*depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
+            && !m.IsCapture
+            && !m.IsPromotion
+            ) break;
+
             board.MakeMove(m);
 
             // internal iterative deepening
@@ -194,7 +206,7 @@ public class MyBot : IChessBot
             // might be able to abuse this. Maybe require at least !isCheck?
             // late move reduction
             if (depth > 2
-                && moveCount++ > 4
+                && moveCount > 4
                 && !root
                 //&& !isCheck
                 //&& !board.IsInCheck()
