@@ -141,7 +141,6 @@ public class MyBot : IChessBot
             if (alpha < eval) alpha = eval;
         }
         // Early return without generating moves for draw positions
-        // TODO: Should we check for insufficient material here?
         else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
 
