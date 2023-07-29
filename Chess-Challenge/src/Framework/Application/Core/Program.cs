@@ -15,7 +15,7 @@ namespace ChessChallenge.Application
 
         public static void Main(string[] args)
         {
-            if (!args.Contains("--uci"))
+            if (!args.Any(arg => arg.Contains("--uci") || arg.Contains("--bot")))
             {
                 RunUI();
                 return;
