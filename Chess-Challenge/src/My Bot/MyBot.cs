@@ -124,13 +124,20 @@ public class MyBot : IChessBot
             depth += 1;
 
         var inQSearch = depth <= 0;
+
+        int eval = EvaluateStatically();
         if (inQSearch)
         {
-            int eval = EvaluateStatically();
-
             if (eval >= beta) return beta;
             if (alpha < eval) alpha = eval;
         }
+        // reverse futility pruning
+        else if (!board.IsInCheck()
+        && depth < 8
+        && beta <= eval - 16 * depth
+        )
+            return eval;
+
         // Early return without generating moves for draw positions
         else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
@@ -165,11 +172,23 @@ public class MyBot : IChessBot
         int TTnodeType = 3;
         // needed for late move reductions
         //bool isCheck = board.IsInCheck();
-        int moveCount = 0;
+        int moveCount = -1;
 
         Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
         foreach (Move m in moves)
         {
+            moveCount++;
+            // futility pruning:
+            // if static eval is far below alpha and this move doesn't seem likely to raise it, 
+            // this and later moves probably won't.
+            if (!root
+            && depth < 8
+            && moveCount > 0 // don't prune TT move
+            && eval + 16 * depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
+            && !m.IsCapture
+            && !m.IsPromotion
+            ) break;
+
             board.MakeMove(m);
 
             // internal iterative deepening
@@ -180,7 +199,7 @@ public class MyBot : IChessBot
             // might be able to abuse this. Maybe require at least !isCheck?
             // late move reduction
             if (depth > 2
-                && moveCount++ > 4
+                && moveCount > 4
                 && !root
                 //&& !isCheck
                 //&& !board.IsInCheck()
