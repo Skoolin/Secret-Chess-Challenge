@@ -98,28 +98,19 @@ public class MyBot : IChessBot
         return 4 + (mgScore * phase + egScore * (24 - phase)) / 24 * (board.IsWhiteToMove ? 1 : -1);
     }
 
-    private void SortMoves(ref Span<Move> moves, Move tableMove)
+    private int GetMoveScore(Move move, Move tableMove) => move switch
     {
-        Span<int> sortKeys = stackalloc int[moves.Length];
-        for (int i = 0; i < moves.Length; i++)
-        {
-            Move move = moves[i];
-            sortKeys[i] = move switch
-            {
-                // 1. TT move
-                _ when move == tableMove => 0,
-                // 2. Queen promotion, don't bother with underpromotions
-                { IsPromotion: true, PromotionPieceType: PieceType.Queen } => 1,
-                // 3. MVV-LVA for captures
-                { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType,
-                // 4. killer heuristic for quiet moves
-                _ when killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move => 10_000,
-                // 5. History heuristic for quiet moves
-                _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
-            };
-        }
-        sortKeys.Sort(moves);
-    }
+        // 1. TT move
+        _ when move == tableMove => 0,
+        // 2. Queen promotion, don't bother with underpromotions
+        { IsPromotion: true, PromotionPieceType: PieceType.Queen } => 1,
+        // 3. MVV-LVA for captures
+        { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType,
+        // 4. killer heuristic for quiet moves
+        _ when killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move => 10_000,
+        // 5. History heuristic for quiet moves
+        _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
+    };
 
     private int AlphaBeta(int depth, int alpha, int beta, bool root, bool nullMoveAllowed = true)
     {
@@ -144,9 +135,7 @@ public class MyBot : IChessBot
         else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
             return 0;
 
-        Span<Move> moves = stackalloc Move[256];
-        board.GetLegalMovesNonAlloc(ref moves, inQSearch);
-
+        var moves = board.GetLegalMoves(inQSearch);
         // Checkmate or stalemate
         if (!inQSearch && moves.Length == 0)
             return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
@@ -178,8 +167,7 @@ public class MyBot : IChessBot
         //bool isCheck = board.IsInCheck();
         int moveCount = 0;
 
-        SortMoves(ref moves, TTm);
-
+        Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
         foreach (Move m in moves)
         {
             board.MakeMove(m);
