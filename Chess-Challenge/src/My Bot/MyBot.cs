@@ -173,13 +173,12 @@ public class MyBot : IChessBot
         }
 
         // Save starting alpha to detect PV and all nodes
-        var oldAlpha = alpha;
-
-        SortMoves(ref moves, TTm);
-
+        int TTnodeType = 3;
         // needed for late move reductions
         //bool isCheck = board.IsInCheck();
         int moveCount = 0;
+
+        SortMoves(ref moves, TTm);
 
         foreach (Move m in moves)
         {
@@ -211,30 +210,30 @@ public class MyBot : IChessBot
             // Terminate search if time is up
             if (terminated) return 0;
 
-            if (score >= beta)
-            {
-                // Save beta cutoff to the TT
-                if (!inQSearch)
-                    transpositionTable[TTidx] = (zobrist, depth, score, 2, m);
-
-                if (!m.IsCapture)
-                {
-                    historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
-                    killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
-                }
-                return beta;
-            }
             if (score > alpha)
             {
+                TTnodeType = 1; // PV node
                 alpha = score;
                 TTm = m;
+
                 if (root)
                     bestMove = TTm;
+
+                if (score >= beta)
+                {
+                    TTnodeType = 2; // Fail high
+                    if (!m.IsCapture)
+                    {
+                        historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
+                        killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
+                    }
+                    break;
+                }
             }
         }
 
         if (!inQSearch)
-            transpositionTable[TTidx] = (zobrist, depth, alpha, oldAlpha == alpha ? 3 : 1, TTm);
+            transpositionTable[TTidx] = (zobrist, depth, alpha, TTnodeType, TTm);
 
         return alpha;
     }
