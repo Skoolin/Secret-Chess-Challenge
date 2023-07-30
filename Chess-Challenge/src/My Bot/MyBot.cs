@@ -174,7 +174,7 @@ public class MyBot : IChessBot
         //bool isCheck = board.IsInCheck();
         int moveCount = -1;
 
-        moves.OrderBy(m => GetMoveScore(m, TTm));
+        Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
         foreach (Move m in moves)
         {
             moveCount++;
