@@ -65,7 +65,7 @@ public class MyBot : IChessBot
         62763517379863439048274988741m, 60275552764954658026916924619m,  3417666362578717151626314690m,  4973620306414875382047969548m,
          5902061094922123563211297040m,  3732039359537307999320347667m,  4968741953975606623624760843m,  1869056152410222494904815120m,
     };
-    private readonly byte[] pieceSquareTables = compressed.SelectMany(d=>decimal.GetBits(d).Take(3)).SelectMany(BitConverter.GetBytes).ToArray();
+    private readonly byte[] pieceSquareTables = compressed.SelectMany(d => decimal.GetBits(d).Take(3)).SelectMany(BitConverter.GetBytes).ToArray();
 
     private int EvaluateStatically()
     {
@@ -141,12 +141,12 @@ public class MyBot : IChessBot
             if (alpha < eval) alpha = eval;
         }
         // reverse futility pruning
-        else if(!board.IsInCheck()
+        else if (!board.IsInCheck()
         && depth < 8
-        && beta <= eval - 20*depth
+        && beta <= eval - 16 * depth
         )
-        return eval;
-        
+            return eval;
+
         // Early return without generating moves for draw positions
         // TODO: Should we check for insufficient material here?
         else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
@@ -195,10 +195,10 @@ public class MyBot : IChessBot
             // futility pruning:
             // if static eval is far below alpha and this move doesn't seem likely to raise it, 
             // this and later moves probably won't.
-            if(!root
+            if (!root
             && depth < 8
             && moveCount > 0 // don't prune TT move
-            && eval + 20*depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
+            && eval + 16 * depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
             && !m.IsCapture
             && !m.IsPromotion
             ) break;
