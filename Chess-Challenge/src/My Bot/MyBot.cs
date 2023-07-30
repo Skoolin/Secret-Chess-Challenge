@@ -65,7 +65,7 @@ public class MyBot : IChessBot
         62763517379863439048274988741m, 60275552764954658026916924619m,  3417666362578717151626314690m,  4973620306414875382047969548m,
          5902061094922123563211297040m,  3732039359537307999320347667m,  4968741953975606623624760843m,  1869056152410222494904815120m,
     };
-    private readonly byte[] pieceSquareTables = compressed.SelectMany(d=>decimal.GetBits(d).Take(3)).SelectMany(BitConverter.GetBytes).ToArray();
+    private readonly byte[] pieceSquareTables = compressed.SelectMany(d => decimal.GetBits(d).Take(3)).SelectMany(BitConverter.GetBytes).ToArray();
 
     private int EvaluateStatically()
     {
