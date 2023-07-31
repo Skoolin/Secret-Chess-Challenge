@@ -195,23 +195,24 @@ public class MyBot : IChessBot
 
             board.MakeMove(m);
 
-            // TODO is this too aggressive? it wins in self play, but other engines
-            // might be able to abuse this. Maybe require at least !isCheck?
+            int score;
             // late move reduction
             if (depth > 2
                 && moveCount > 4
                 && !root
-                //&& !isCheck
-                //&& !board.IsInCheck()
-                //&& !m.IsCapture
-                && alpha >= -AlphaBeta(depth - 3, -beta, -alpha, false)
-                )
-            {
-                board.UndoMove(m);
-                continue;
-            }
+                && alpha >= (score = -AlphaBeta(depth - 3, -alpha - 1, -alpha, false)))
+                goto SEARCH_SKIPPED;
 
-            int score = -AlphaBeta(depth - 1, -beta, -alpha, false);
+            // zero window search
+            if (!root
+                && moveCount > 0
+                && (alpha >= (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha, false))
+                || score >= beta))
+                goto SEARCH_SKIPPED;
+
+            score = -AlphaBeta(depth - 1, -beta, -alpha, false);
+
+        SEARCH_SKIPPED:
             board.UndoMove(m);
 
             // Terminate search if time is up
