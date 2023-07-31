@@ -117,7 +117,7 @@ public class MyBot : IChessBot
         nodes++; // #DEBUG
 
         // Check if time is up
-        terminated = 30 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
+        terminated = 10 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
 
         // Check extension in case of forcing sequences
         if (depth >= 0 && board.IsInCheck())
@@ -281,7 +281,7 @@ public class MyBot : IChessBot
         bestMove = default;
         terminated = false;
 
-        for (int depth = 0; !terminated && ++depth < 64;)
+        for (int depth = 0; timer.MillisecondsElapsedThisTurn * 35 < timer.MillisecondsRemaining && ++depth < 64;)
         {
             var score = 5 * // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, false, true);
