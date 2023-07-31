@@ -144,16 +144,16 @@ public class MyBot : IChessBot
         // Transposition table lookup
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
+
+        // internal iterative deepening
+        if (depth >= 4 && transpositionTable[TTidx].Item1 != zobrist)
+            AlphaBeta(depth - 2, alpha, beta, nullMoveAllowed, root);
+
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
         // The TT entry is from a different position, so no best move is available
         if (TTzobrist != zobrist)
-        {
             TTm = default;
-            // internal iterative deepening
-            if (depth >= 4)
-                AlphaBeta(depth - 2, alpha, beta, nullMoveAllowed, root);
-        }
         else if (!root && TTdepth >= depth && (TTtype is 1 || TTtype is 2 && TTeval >= beta || TTtype is 3 && TTeval <= alpha))
             return TTeval;
 
