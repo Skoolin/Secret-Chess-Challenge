@@ -112,7 +112,7 @@ public class MyBot : IChessBot
         _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
     };
 
-    private int AlphaBeta(int depth, int alpha, int beta, bool root, bool nullMoveAllowed = true)
+    private int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
     {
         nodes++; // #DEBUG
 
@@ -123,35 +123,27 @@ public class MyBot : IChessBot
         if (depth >= 0 && board.IsInCheck())
             depth += 1;
 
-        var inQSearch = depth <= 0;
-
+        bool inQSearch = depth <= 0;
         int eval = EvaluateStatically();
+
         if (inQSearch)
         {
             if (eval >= beta) return beta;
             if (alpha < eval) alpha = eval;
         }
-        // reverse futility pruning
-        else if (!board.IsInCheck()
-        && depth < 8
-        && beta <= eval - 16 * depth
-        )
-            return eval;
-
-        // Early return without generating moves for draw positions
-        else if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
-            return 0;
-
-        var moves = board.GetLegalMoves(inQSearch);
-        // Checkmate or stalemate
-        if (!inQSearch && moves.Length == 0)
-            return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
+        else
+        {
+            // reverse futility pruning
+            if (!board.IsInCheck() && depth < 8 && beta <= eval - 16 * depth)
+                return eval;
+            // Early return without generating moves for draw positions
+            if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
+                return 0;
+        }
 
         // Transposition table lookup
-        // TODO: Should we try to probe before generating moves?
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
-
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
         // The TT entry is from a different position, so no best move is available
@@ -163,18 +155,17 @@ public class MyBot : IChessBot
         // Null Move Pruning: check if we beat beta even without moving
         if (nullMoveAllowed && depth > 2 && board.TrySkipTurn())
         {
-            int score = -AlphaBeta(depth - 3, -beta, -beta + 1, false, false);
+            int score = -AlphaBeta(depth - 3, -beta, -beta + 1, false);
             board.UndoSkipTurn();
             if (score >= beta) return beta;
         }
 
-        // Save starting alpha to detect PV and all nodes
         int TTnodeType = 3;
-        // needed for late move reductions
-        //bool isCheck = board.IsInCheck();
         int moveCount = -1;
 
+        var moves = board.GetLegalMoves(inQSearch);
         Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
+
         foreach (Move m in moves)
         {
             moveCount++;
@@ -182,36 +173,28 @@ public class MyBot : IChessBot
             // if static eval is far below alpha and this move doesn't seem likely to raise it, 
             // this and later moves probably won't.
             if (!root
-            && depth < 8
-            && moveCount > 0 // don't prune TT move
-            && eval + 16 * depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
-            && !m.IsCapture
-            && !m.IsPromotion
-            ) break;
+                && depth < 8
+                && moveCount > 0 // don't prune TT move
+                && eval + 16 * depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
+                && !m.IsCapture
+                && !m.IsPromotion)
+                break;
 
             board.MakeMove(m);
 
             // internal iterative deepening
             if (depth >= 5)
-                AlphaBeta(depth - 3, -beta, -alpha, false);
+                AlphaBeta(depth - 3, -beta, -alpha);
 
-            // TODO is this too aggressive? it wins in self play, but other engines
-            // might be able to abuse this. Maybe require at least !isCheck?
             // late move reduction
-            if (depth > 2
-                && moveCount > 4
-                && !root
-                //&& !isCheck
-                //&& !board.IsInCheck()
-                //&& !m.IsCapture
-                && alpha >= -AlphaBeta(depth - 3, -beta, -alpha, false)
-                )
+            // TODO is this too aggressive? it wins in self play, but other engines might be able to abuse this
+            if (!root && depth > 2 && moveCount > 4 && alpha >= -AlphaBeta(depth - 3, -beta, -alpha))
             {
                 board.UndoMove(m);
                 continue;
             }
 
-            int score = -AlphaBeta(depth - 1, -beta, -alpha, false);
+            int score = -AlphaBeta(depth - 1, -beta, -alpha);
             board.UndoMove(m);
 
             // Terminate search if time is up
@@ -240,7 +223,13 @@ public class MyBot : IChessBot
         }
 
         if (!inQSearch)
+        {
+            // Checkmate or stalemate
+            if (moveCount < 0)
+                return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
+
             transpositionTable[TTidx] = (zobrist, depth, alpha, TTnodeType, TTm);
+        }
 
         return alpha;
     }
@@ -285,7 +274,7 @@ public class MyBot : IChessBot
         for (int depth = 0; !terminated && ++depth < 64;)
         {
             var score = 5 * // #DEBUG
-            AlphaBeta(depth, -100_000_000, 100_000_000, true, false);
+            AlphaBeta(depth, -100_000_000, 100_000_000, false, true);
 
             // Search was terminated at root as it was a repeated position or a 50 move draw
             if (bestMove == default) break; // #DEBUG
