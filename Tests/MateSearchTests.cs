@@ -7,7 +7,7 @@ namespace Tests;
 public class MateSearchTests
 {
     private const int SearchTimeMultiplier = 30;
-    private static readonly int[] Timings = { 150, 300, 500, 2000 };
+    private static readonly int[] Timings = { 150, 300, 750, 2750 };
 
     [TestCaseSource(nameof(GetTestCases))]
     public void ShouldFindMateInX(string fen, int mateIn)
