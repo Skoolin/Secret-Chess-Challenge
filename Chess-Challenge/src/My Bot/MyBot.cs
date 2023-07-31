@@ -152,6 +152,10 @@ public class MyBot : IChessBot
         ulong zobrist = board.ZobristKey;
         ulong TTidx = zobrist % TABLE_SIZE;
 
+        // internal iterative deepening
+        if (depth >= 4 && transpositionTable[TTidx].Item1 != zobrist)
+            AlphaBeta(depth - 2, alpha, beta, root, nullMoveAllowed);
+
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
         // The TT entry is from a different position, so no best move is available
@@ -190,10 +194,6 @@ public class MyBot : IChessBot
             ) break;
 
             board.MakeMove(m);
-
-            // internal iterative deepening
-            if (depth >= 5)
-                AlphaBeta(depth - 3, -beta, -alpha, false);
 
             // TODO is this too aggressive? it wins in self play, but other engines
             // might be able to abuse this. Maybe require at least !isCheck?
