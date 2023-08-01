@@ -134,7 +134,7 @@ public class MyBot : IChessBot
         else
         {
             // reverse futility pruning
-            if (!board.IsInCheck() && depth < 8 && beta <= eval - 16 * depth)
+            if (!board.IsInCheck() && depth < 8 && beta <= eval - 384 * depth)
                 return eval;
             // Early return without generating moves for draw positions
             if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
@@ -180,7 +180,7 @@ public class MyBot : IChessBot
             if (!root
                 && depth < 8
                 && moveCount > 0 // don't prune TT move
-                && eval + 16 * depth + 10 < alpha // threshhold of 50 + 100 * depth centipawns
+                && eval + 384 * depth + 240 < alpha // threshhold of 50 + 100 * depth centipawns
                 && !m.IsCapture
                 && !m.IsPromotion)
                 break;
