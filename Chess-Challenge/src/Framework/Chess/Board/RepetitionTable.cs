@@ -11,7 +11,7 @@ namespace ChessChallenge.Chess
 
         public RepetitionTable()
         {
-            hashes = new ulong[256];
+            hashes = new ulong[1024];
             startIndices = new int[hashes.Length + 1];
         }
 
