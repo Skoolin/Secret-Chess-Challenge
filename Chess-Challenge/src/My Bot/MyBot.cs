@@ -165,6 +165,7 @@ public class MyBot : IChessBot
             if (score >= beta) return beta;
         }
 
+        bool pvNode = alpha != beta - 1;
         int TTnodeType = 3;
         int moveCount = -1;
 
@@ -191,8 +192,7 @@ public class MyBot : IChessBot
             // late move reduction
             if (depth > 2
                 && moveCount > 4
-                && !root
-                && alpha >= (score = -AlphaBeta(depth - 3, -alpha - 1, -alpha)))
+                && alpha >= (score = -AlphaBeta(depth - (int)(pvNode ? 2 : 1 + Math.Log2(depth)), -alpha - 1, -alpha)))
                 goto SEARCH_SKIPPED;
 
             // zero window search
