@@ -95,7 +95,7 @@ public class MyBot : IChessBot
         }
 
         // Interpolate between game phases and add a bonus for the side to move
-        return 4 + (mgScore * phase + egScore * (24 - phase)) / 24 * (board.IsWhiteToMove ? 1 : -1);
+        return 96 + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
     }
 
     private int GetMoveScore(Move move, Move tableMove) => move switch
@@ -265,9 +265,9 @@ public class MyBot : IChessBot
     [NoTokenCount]
     private void SendReport(int depth, int score)
     {
-        Console.Write($"info depth {depth} score cp {score} nodes {nodes}");
+        Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {nodes}");
         Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
-        Console.WriteLine($" pv{GetPV(bestMove, 8)}");
+        Console.WriteLine($" pv{GetPV(bestMove, 15)}");
     }
 
     public Move Think(Board _board, Timer _timer)
@@ -283,7 +283,7 @@ public class MyBot : IChessBot
 
         for (int depth = 0; timer.MillisecondsElapsedThisTurn * 35 < timer.MillisecondsRemaining && ++depth < 64;)
         {
-            var score = 5 * // #DEBUG
+            var score = // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, false, true);
 
             // Search was terminated at root as it was a repeated position or a 50 move draw
