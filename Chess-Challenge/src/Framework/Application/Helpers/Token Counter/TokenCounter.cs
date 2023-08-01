@@ -30,7 +30,7 @@ namespace ChessChallenge.Application
             SyntaxKind.CloseParenToken
         });
 
-        public static int CountTokens(string code)
+        public static (int totalCount, int debugCount) CountTokens(string code)
         {
             var builder = new StringBuilder();
             var lines = code.Split(Environment.NewLine, StringSplitOptions.None);
@@ -45,7 +45,8 @@ namespace ChessChallenge.Application
 
             SyntaxTree tree = CSharpSyntaxTree.ParseText(builder.ToString());
             SyntaxNode root = tree.GetRoot();
-            return CountTokens(root);
+            // Counting debug tokens is not necessary, so we can skip it for now
+            return (CountTokens(root), 0);
         }
 
         static int CountTokens(SyntaxNodeOrToken syntaxNode)
