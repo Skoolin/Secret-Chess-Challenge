@@ -46,6 +46,8 @@ public class MyBot : IChessBot
     private readonly int[,] historyTable = new int[7, 64];
     private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
 
+    private readonly Move[] badQuiets = new Move[512];
+
     private readonly byte[] pieceSquareTables = new[] {
         15215810465066655233248992798m,  8089117071881235852360496940m,  9938721297025718237802733851m,  8710457497559245848775237409m,
          9320960295509831331020938775m, 18663691310616769772971236894m, 29198416909224679920076015938m, 26409434784264242148497451874m,
@@ -157,7 +159,8 @@ public class MyBot : IChessBot
 
         int TTnodeType = 3,
             moveCount = -1,
-            score;
+            score,
+            badQuietCount = 1; // starting index 1
 
         // Null Move Pruning: check if we beat beta even without moving
         if (nullMoveAllowed && depth > 2 && eval >= beta && board.TrySkipTurn())
@@ -222,12 +225,16 @@ public class MyBot : IChessBot
                     TTnodeType = 2; // Fail high
                     if (!m.IsCapture)
                     {
+                        while (badQuietCount > 0) // starting index 1
+                            historyTable[(int)badQuiets[badQuietCount].MovePieceType, badQuiets[badQuietCount--].TargetSquare.Index] -= depth * depth;
                         historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
                         killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
                     }
                     break;
                 }
             }
+            else if (!m.IsCapture)
+                badQuiets[badQuietCount++] = m;
         }
 
         if (!inQSearch)
