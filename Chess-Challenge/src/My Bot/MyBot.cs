@@ -288,6 +288,6 @@ public class MyBot : IChessBot
             SendReport(depth, score);       // #DEBUG
         }
 
-        return bestMove == default ? board.GetLegalMoves()[0] : bestMove;
+        return bestMove;
     }
 }
