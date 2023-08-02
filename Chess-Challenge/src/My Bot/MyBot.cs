@@ -160,7 +160,7 @@ public class MyBot : IChessBot
             score;
 
         // Null Move Pruning: check if we beat beta even without moving
-        if (nullMoveAllowed && depth > 2 && board.TrySkipTurn())
+        if (nullMoveAllowed && depth > 2 && eval >= beta && board.TrySkipTurn())
         {
             score = -AlphaBeta(depth - 3 - depth / 6, -beta, -beta + 1, false);
             board.UndoSkipTurn();
