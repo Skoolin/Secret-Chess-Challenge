@@ -283,7 +283,7 @@ public class MyBot : IChessBot
 
         for (int depth = 1; timer.MillisecondsElapsedThisTurn * 35 < timer.MillisecondsRemaining && depth < 64;)
         {
-            var score = AlphaBeta(depth, alpha, beta, false, true);
+            var score = AlphaBeta(depth, alpha, beta, true, true);
 
             if (alpha >= score || score >= beta)
             {
