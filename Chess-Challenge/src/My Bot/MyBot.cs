@@ -275,7 +275,6 @@ public class MyBot : IChessBot
 
         nodes = 0;  // #DEBUG
 
-        historyTable.Initialize();
         bestMove = default;
         terminated = false;
 
