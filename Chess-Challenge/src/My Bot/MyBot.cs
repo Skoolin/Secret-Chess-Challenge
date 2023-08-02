@@ -135,7 +135,7 @@ public class MyBot : IChessBot
             if (!board.IsInCheck() && depth < 8 && beta <= eval - 384 * depth)
                 return eval;
             // Early return without generating moves for draw positions
-            if (board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
+            if (!root && board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
                 return 0;
         }
 
