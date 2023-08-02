@@ -140,8 +140,8 @@ public class MyBot : IChessBot
         }
 
         // Transposition table lookup
-        ulong zobrist = board.ZobristKey;
-        ulong TTidx = zobrist % TABLE_SIZE;
+        ulong zobrist = board.ZobristKey,
+            TTidx = zobrist % TABLE_SIZE;
 
         // internal iterative deepening
         if (depth >= 4 && transpositionTable[TTidx].Item1 != zobrist)
@@ -155,16 +155,17 @@ public class MyBot : IChessBot
         else if (!root && TTdepth >= depth && (TTtype is 1 || TTtype is 2 && TTeval >= beta || TTtype is 3 && TTeval <= alpha))
             return TTeval;
 
+        int TTnodeType = 3,
+            moveCount = -1,
+            score;
+
         // Null Move Pruning: check if we beat beta even without moving
         if (nullMoveAllowed && depth > 2 && board.TrySkipTurn())
         {
-            int score = -AlphaBeta(depth - 3 - depth / 6, -beta, -beta + 1, false);
+            score = -AlphaBeta(depth - 3 - depth / 6, -beta, -beta + 1, false);
             board.UndoSkipTurn();
             if (score >= beta) return beta;
         }
-
-        int TTnodeType = 3;
-        int moveCount = -1;
 
         var moves = board.GetLegalMoves(inQSearch);
         Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
@@ -185,7 +186,6 @@ public class MyBot : IChessBot
 
             board.MakeMove(m);
 
-            int score;
             // late move reduction
             if (depth > 2
                 && moveCount > 4
