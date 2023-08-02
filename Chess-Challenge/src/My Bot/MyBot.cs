@@ -96,19 +96,17 @@ public class MyBot : IChessBot
         return 96 + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
     }
 
-    private int GetMoveScore(Move move, Move tableMove) => move switch
-    {
-        // 1. TT move
-        _ when move == tableMove => 0,
-        // 2. Queen promotion, don't bother with underpromotions
-        { IsPromotion: true, PromotionPieceType: PieceType.Queen } => 1,
-        // 3. MVV-LVA for captures
-        { IsCapture: true } => 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType,
-        // 4. killer heuristic for quiet moves
-        _ when killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move => 10_000,
-        // 5. History heuristic for quiet moves
-        _ => 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index]
-    };
+    private int GetMoveScore(Move move, Move tableMove) =>
+          // 1. TT move
+          move == tableMove ? 0
+          // 2. Queen promotion, don't bother with underpromotions
+          : move.IsPromotion && move.PromotionPieceType is PieceType.Queen ? 1
+          // 3. MVV-LVA for captures
+          : move.IsCapture ? 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType
+          // 4. Killer heuristic for quiet moves
+          : killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move ? 10000
+          // 5. History heuristic for quiet moves
+          : 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index];
 
     private int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
     {
