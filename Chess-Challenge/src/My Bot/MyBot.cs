@@ -13,7 +13,6 @@ public class MyBot : IChessBot
     private Board board;
 
     private Move bestMove;
-    private bool terminated;
 
     // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
     private const ulong TABLE_SIZE = 1 << 22;
@@ -114,9 +113,6 @@ public class MyBot : IChessBot
     {
         nodes++; // #DEBUG
 
-        // Check if time is up
-        terminated = 10 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining;
-
         // Check extension in case of forcing sequences
         if (depth >= 0 && board.IsInCheck())
             depth += 1;
@@ -207,7 +203,7 @@ public class MyBot : IChessBot
             board.UndoMove(m);
 
             // Terminate search if time is up
-            if (terminated) return 0;
+            if (10 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining) return 0;
 
             if (score > alpha)
             {
@@ -281,7 +277,6 @@ public class MyBot : IChessBot
         nodes = 0;  // #DEBUG
 
         bestMove = default;
-        terminated = false;
 
         int alpha = -100_000_000,
             beta = 100_000_000;
