@@ -184,20 +184,19 @@ public class MyBot : IChessBot
 
             board.MakeMove(m);
 
-            if (
-                // late move reduction
-                (depth <= 2
+            // late move reduction
+            if (depth <= 2
                 || moveCount <= 4
                 || alpha < (score = -AlphaBeta(depth - (int)(pvNode ? 2 : 1 + Math.Log2(depth)), -alpha - 1, -alpha)))
 
                 // zero window search
-                && (root
+                if (root
                 || moveCount > 0
                 || alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
-                && score < beta))
+                && score < beta)
 
-                // full window search
-                score = -AlphaBeta(depth - 1, -beta, -alpha);
+                    // full window search
+                    score = -AlphaBeta(depth - 1, -beta, -alpha);
 
             board.UndoMove(m);
 
