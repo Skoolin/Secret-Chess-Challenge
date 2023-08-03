@@ -2,9 +2,12 @@
 using System;
 using System.Linq;
 using static ChessChallenge.Application.TokenCounter; // #DEBUG
+using static ChessChallenge.Application.UCI;          // #DEBUG
 
 public class MyBot : IChessBot
 {
+    [Tunable] public int TempoBonus { get; set; } = 96; // #DEBUG
+
     // Node counter for debugging purposes
     private int nodes;   // #DEBUG
 
@@ -94,7 +97,7 @@ public class MyBot : IChessBot
         }
 
         // Interpolate between game phases and add a bonus for the side to move
-        return 96 + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
+        return TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
     }
 
     private int GetMoveScore(Move move, Move tableMove) =>

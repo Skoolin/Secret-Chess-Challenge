@@ -1,14 +1,21 @@
 ﻿using ChessChallenge.API;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace ChessChallenge.Application;
 
 public class UCI
 {
+    [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
+    public sealed class TunableAttribute : Attribute { }
+
     private const string STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     private const string ENGINE_NAME = "Name";
     private const string ENGINE_AUTHOR = "Author";
 
+    private readonly List<PropertyInfo> _tunableProperties;
     private readonly IChessBot _bot;
     private Board _board;
 
@@ -16,6 +23,10 @@ public class UCI
     {
         _bot = bot;
         _board = Board.CreateBoardFromFEN(STARTING_FEN);
+
+        _tunableProperties = bot.GetType().GetProperties()
+            .Where(p => p.GetCustomAttribute<TunableAttribute>() is not null)
+            .ToList();
     }
 
     public void StartUciMessageLoop()
@@ -49,6 +60,10 @@ public class UCI
 
                 case "position":
                     ParsePositionCommand(tokens);
+                    break;
+
+                case "setoption":
+                    SetOptionCommand(tokens);
                     break;
 
                 case "go":
@@ -114,5 +129,24 @@ public class UCI
             var move = new Move(tokens[i], _board);
             _board.MakeMove(move);
         }
+    }
+
+    /// <summary>
+    /// Parses the `setoption` command and updates the bot's tunable properties accordingly.
+    /// </summary>
+    private void SetOptionCommand(string[] tokens)
+    {
+        // Only the MyBot class has options to set
+        if (_bot is not MyBot bot)
+            return;
+
+        var name = tokens[2];
+        var value = tokens[4];
+
+        var property = _tunableProperties.FirstOrDefault(p => p.Name == name);
+        if (property is null)
+            return;
+
+        property.SetValue(bot, Convert.ChangeType(value, property.PropertyType));
     }
 }
