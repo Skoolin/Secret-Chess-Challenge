@@ -77,11 +77,12 @@ public class PSQT
         for (var i = 0; i < pieceSquareTables.Length; i++)
         {
             pieceSquareTables[i] = (int) Math.Round(pieceSquareTables[i] / 5d);
+            pieceSquareTables[i] += 15;
         }
     }
 
-    private static int[] mgMaterial = { 82, 337, 365, 477, 1025, 80 };
-    private static int[] egMaterial = { 94, 281, 297, 512, 936, 80 };
+    private static int[] mgMaterial = { 82, 337, 365, 477, 1025, 0 };
+    private static int[] egMaterial = { 94, 281, 297, 512, 936, 0 };
 
     private static int[] pieceSquareTables =
     {
