@@ -7,7 +7,11 @@ using static ChessChallenge.Application.UCI;          // #DEBUG
 public class MyBot : IChessBot
 {
     [Tunable] public int TempoBonus { get; set; } = 96; // #DEBUG
-
+    [Tunable] public int RFPMargin { get; set; } = 384; // #DEBUG
+    [Tunable] public int FPMargin { get; set; } = 384; // #DEBUG
+    [Tunable] public int FPFixedMargin { get; set; } = 240; // #DEBUG
+    [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
+    [Tunable] public int HardTimeLimit { get; set; } = 10; // #DEBUG
     // Node counter for debugging purposes
     private int nodes;   // #DEBUG
 
@@ -131,7 +135,7 @@ public class MyBot : IChessBot
         else
         {
             // reverse futility pruning
-            if (!board.IsInCheck() && depth < 8 && beta <= eval - 384 * depth)
+            if (!board.IsInCheck() && depth < 8 && beta <= eval - RFPMargin * depth)
                 return eval;
             // Early return without generating moves for draw positions
             if (!root && board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
@@ -180,7 +184,7 @@ public class MyBot : IChessBot
             if (!root
                 && depth < 8
                 && moveCount > 0 // don't prune TT move
-                && eval + 384 * depth + 240 < alpha // threshhold of 50 + 100 * depth centipawns
+                && eval + FPMargin * depth + FPFixedMargin < alpha // threshhold of 50 + 100 * depth centipawns
                 && !m.IsCapture
                 && !m.IsPromotion)
                 break;
@@ -204,7 +208,7 @@ public class MyBot : IChessBot
             board.UndoMove(m);
 
             // Terminate search if time is up
-            if (10 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining) return 0;
+            if (HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining) return 0;
 
             if (score > alpha)
             {
@@ -282,7 +286,7 @@ public class MyBot : IChessBot
         int alpha = -100_000_000,
             beta = 100_000_000;
 
-        for (int depth = 1; timer.MillisecondsElapsedThisTurn * 35 < timer.MillisecondsRemaining && depth < 64;)
+        for (int depth = 1; timer.MillisecondsElapsedThisTurn * SoftTimeLimit < timer.MillisecondsRemaining && depth < 64;)
         {
             var score = AlphaBeta(depth, alpha, beta, true, true);
 
