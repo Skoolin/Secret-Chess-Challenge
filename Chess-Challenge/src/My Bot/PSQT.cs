@@ -14,6 +14,7 @@ public class PSQT
         NormalizePSQT();
 
         var bytes = pieceSquareTables.Select(x => checked((byte)x)).ToArray();
+        var transposed = TransposeTable(bytes);
         var compressed = CompressAsDecimalArray(bytes);
 
         for (var i = 0; i < compressed.Length; i++)
@@ -22,6 +23,22 @@ public class PSQT
             if (i % 4 == 3)
                 Console.WriteLine();
         }
+    }
+
+    private static byte[] TransposeTable(byte[] bytes)
+    {
+        byte[] result = new byte[bytes.Length];
+
+        for (int idx = 0; idx < bytes.Length; idx++)
+        {
+            bool isEndgameTable = idx >= 384;
+            int pieceType = (idx % 384) / 64;
+            int square = idx % 64;
+
+            int newIdx = square * 12 + pieceType + (isEndgameTable ? 6 : 0);
+            result[newIdx] = bytes[idx];
+        }
+        return result;
     }
 
     /// <summary>
@@ -59,8 +76,8 @@ public class PSQT
     {
         for (var i = 0; i < pieceSquareTables.Length; i++)
         {
-            pieceSquareTables[i] /= 5;
-            pieceSquareTables[i] += 14;
+            pieceSquareTables[i] = (int) Math.Round(pieceSquareTables[i] / 5d);
+            pieceSquareTables[i] += 15;
         }
     }
 
