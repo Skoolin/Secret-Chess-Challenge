@@ -14,7 +14,8 @@ public class PSQT
         NormalizePSQT();
 
         var bytes = pieceSquareTables.Select(x => checked((byte)x)).ToArray();
-        var compressed = CompressAsDecimalArray(bytes);
+        var transposed = TransposeTable(bytes);
+        var compressed = CompressAsDecimalArray(transposed);
 
         for (var i = 0; i < compressed.Length; i++)
         {
@@ -22,6 +23,22 @@ public class PSQT
             if (i % 4 == 3)
                 Console.WriteLine();
         }
+    }
+
+    private static byte[] TransposeTable(byte[] bytes)
+    {
+        byte[] result = new byte[bytes.Length];
+
+        for (int idx = 0; idx < bytes.Length; idx++)
+        {
+            bool isEndgameTable = idx >= 384;
+            int pieceType = (idx % 384) / 64;
+            int square = idx % 64;
+
+            int newIdx = square * 12 + pieceType + (isEndgameTable ? 6 : 0);
+            result[newIdx] = bytes[idx];
+        }
+        return result;
     }
 
     /// <summary>
@@ -60,12 +77,11 @@ public class PSQT
         for (var i = 0; i < pieceSquareTables.Length; i++)
         {
             pieceSquareTables[i] /= 5;
-            pieceSquareTables[i] += 14;
         }
     }
 
-    private static int[] mgMaterial = { 82, 337, 365, 477, 1025, 0 };
-    private static int[] egMaterial = { 94, 281, 297, 512, 936, 0 };
+    private static int[] mgMaterial = { 82, 337, 365, 477, 1025, 80 };
+    private static int[] egMaterial = { 94, 281, 297, 512, 936, 80 };
 
     private static int[] pieceSquareTables =
     {

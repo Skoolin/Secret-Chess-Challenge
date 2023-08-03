@@ -1,4 +1,5 @@
 ﻿using ChessChallenge.API;
+using ChessChallenge.Bot;
 using Raylib_cs;
 using System;
 using System.IO;
