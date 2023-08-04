@@ -162,7 +162,7 @@ public class MyBot : IChessBot
         int TTnodeType = 3,
             moveCount = 0,
             score,
-            badQuietCount = 1; // starting index 1
+            badQuietCount = 0;
 
         // Null Move Pruning: check if we beat beta even without moving
         if (nullMoveAllowed && depth > 2 && eval >= beta && board.TrySkipTurn())
@@ -225,8 +225,8 @@ public class MyBot : IChessBot
                     TTnodeType = 2; // Fail high
                     if (!m.IsCapture)
                     {
-                        while (badQuietCount > 0) // starting index 1
-                            historyTable[(int)badQuiets[badQuietCount].MovePieceType, badQuiets[badQuietCount--].TargetSquare.Index] -= depth * depth;
+                        while (badQuietCount-- > 0)
+                            historyTable[(int)badQuiets[badQuietCount].MovePieceType, badQuiets[badQuietCount].TargetSquare.Index] -= depth * depth;
                         historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
                         killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
                     }
