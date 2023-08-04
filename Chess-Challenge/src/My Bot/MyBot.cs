@@ -26,6 +26,7 @@ public class MyBot : IChessBot
 
     /// <summary>
     /// Transposition Table for caching previously computed positions during search.
+    /// https://www.chessprogramming.org/Transposition_Table
     /// 
     /// To insert an entry:
     /// <code>TranspositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, evaluation, nodeType, move);</code>
@@ -49,11 +50,58 @@ public class MyBot : IChessBot
         Move    // Best move
     )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
 
+    /// <summary>
+    /// History Heuristic for ordering quiet moves.
+    /// https://www.chessprogramming.org/History_Heuristic
+    /// 
+    /// Moves that often contribute to a beta cutoff have a higher score.
+    /// 
+    /// Indexed by:
+    /// <code>historyTable[pieceType, targetSquare]</code>
+    /// </summary>
     private readonly int[,] historyTable = new int[7, 64];
-    private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
 
+    /// <summary>
+    /// Negative Plausibility: Extension of History Heuristic.
+    /// Stores quiets that didn't raise alpha and that "delayed" a beta cutoff from occuring.
+    /// These moves will get a penalty in the historyTable when a move with lower score causes a beta cutoff to occur.
+    /// </summary>
     private readonly Move[] badQuiets = new Move[512];
 
+    /// <summary>
+    /// Killer Move Heuristic for ordering quiet moves.
+    /// https://www.chessprogramming.org/Killer_Move
+    /// 
+    /// Used to retrieve moves that caused a beta cutoff in sibling nodes.
+    /// 
+    /// Indexed by [board.PlyCount]
+    /// </summary>
+    private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
+
+
+    /// <summary>
+    /// Tightly packed Piece Square Tables:
+    /// https://www.chessprogramming.org/Piece-Square_Tables
+    /// 
+    /// Each decimal represents the piece values for one square.
+    /// Because we use Tapered Eval, we need 2 values per piece per square.
+    /// Each value is a single unsigned byte.
+    /// 
+    /// The values are ordered as follows:
+    /// <list type="table">
+    ///     <item>
+    ///         <term>middlegame</term>
+    ///         <description>pawn knight bishop rook queen king</description>
+    ///     </item>
+    ///     <item>
+    ///         <term>endgame</term>
+    ///         <description>pawn knight bishop rook queen king</description>
+    ///     </item>
+    /// </list>
+    /// 
+    /// To save tokens during unpacking, after every 12 byte square table there are 4 empty byte values that can't be used.
+    /// There are 86 tokens in total: 64 decimal literals and 22 tokens to declare and unpack the table.
+    /// </summary>
     private readonly byte[] pieceSquareTables = new[] {
           533633171124025748709646864m,  3016762064087496223854506256m,  3945226575538272208856562704m,  3946430778775224576385300752m,
          4255911084676820992275009296m,  6111612199338538186227855376m,  5180739299284134186378215440m,  3945212351873611197867044368m,
@@ -84,6 +132,14 @@ public class MyBot : IChessBot
     int ABsearchTTProbe = 0; // #DEBUG
     int ABsearchTTHit = 0; // #DEBUG
 
+
+    /// <summary>
+    /// Static evaluation using Piece Square Tables and Tapered Evaluation
+    /// https://www.chessprogramming.org/Tapered_Eval
+    /// 
+    /// This will be manually inlined into the AlphaBeta() function to save tokens
+    /// </summary>
+    /// <returns>static evaluation of board position from the perspective of current player</returns>
     private int EvaluateStatically()
     {
         int mgScore = 0, egScore = 0, phase = 0;
@@ -115,6 +171,22 @@ public class MyBot : IChessBot
         return TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
     }
 
+    /// <summary>
+    /// Evaluates move for move ordering.
+    /// https://www.chessprogramming.org/Move_Ordering
+    /// 
+    /// Move ordering features are:
+    /// <list type="number">
+    ///     <item>Transposition Table</item>
+    ///     <item>Promotions</item>
+    ///     <item>Captures using MVV-LVA</item>
+    ///     <item>Killer Move Heuristic</item>
+    ///     <item>History Heuristic with Negative Plausibility</item>
+    /// </list>
+    /// </summary>
+    /// <param name="move">the move to evaluate</param>
+    /// <param name="tableMove">the PV move retrieved from the transposition table (or Move.NullMove)</param>
+    /// <returns>move ranking for move ordering</returns>
     private int GetMoveScore(Move move, Move tableMove) =>
           // 1. TT move
           move == tableMove ? 0
@@ -127,6 +199,32 @@ public class MyBot : IChessBot
           // 5. History heuristic for quiet moves
           : 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index];
 
+    /// <summary>
+    /// alpha-beta-search implementation combined with quiescence-search for compactness.
+    /// https://www.chessprogramming.org/Alpha-Beta
+    /// https://www.chessprogramming.org/Quiescence_Search
+    /// 
+    /// We implemented the following search enhancements:
+    /// <list type="bullet">
+    ///     <item><term>Check Extensions</term><description>https://www.chessprogramming.org/Check_Extensions</description></item>
+    ///     <item><term>Reverse Futility Pruning</term><description>https://www.chessprogramming.org/Reverse_Futility_Pruning</description></item>
+    ///     <item><term>Internal Iterative Deepening</term><description>https://www.chessprogramming.org/Internal_Iterative_Deepening</description></item>
+    ///     <item><term>Internal Iterative Reductions</term><description></description></item>
+    ///     <item><term>Adaptive Null Move Pruning</term><description>https://www.chessprogramming.org/Null_Move_Pruning</description></item>
+    ///     <item><term>Futility Pruning</term><description>https://www.chessprogramming.org/Futility_Pruning</description></item>
+    ///     <item><term>Adaptive Late Move Reductions</term><description>https://www.chessprogramming.org/Late_Move_Reductions</description></item>
+    ///     <item><term>Principal Variation Search</term><description>https://www.chessprogramming.org/Principal_Variation_Search</description></item>
+    /// </list>
+    /// 
+    /// This method is declared in the 'Think()' method to have access to the 'board' and 'timer' variables in the 'Think()' method's scope.
+    /// 
+    /// </summary>
+    /// <param name="depth">remaining search depth</param>
+    /// <param name="alpha">lower score bound</param>
+    /// <param name="beta">upper score bound</param>
+    /// <param name="nullMoveAllowed"></param>
+    /// <param name="root"></param>
+    /// <returns>evaluation of the position searched up to <paramref name="depth"/></returns>
     private int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
     {
         nodes++; // #DEBUG
@@ -332,6 +430,18 @@ public class MyBot : IChessBot
             Console.WriteLine("" + i + ": " + (100d * alphaIdx[i] / pvCount).ToString("0.##\\%"));
     }
 
+    /// <summary>
+    /// The main method initiating the search.
+    /// Uses Aspiration Window Search to bound the Alpha-Beta Search.
+    /// https://www.chessprogramming.org/Aspiration_Windows
+    /// 
+    /// Uses Iterative Deepening and the "Optimal Time Management" Strategy for Time Management
+    /// https://www.chessprogramming.org/Iterative_Deepening
+    /// 
+    /// </summary>
+    /// <param name="_board"></param>
+    /// <param name="_timer"></param>
+    /// <returns>the best move found in the current position</returns>
     public Move Think(Board _board, Timer _timer)
     {
         timer = _timer;
