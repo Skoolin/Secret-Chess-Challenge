@@ -73,6 +73,17 @@ public class MyBot : IChessBot
          3320188314820977155799138320m,  4241380326259664662758309136m,  3626056010002903460997054224m,  2383256618496987179765743120m,
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
+    private int cutoffCount = 0; // #DEBUG
+    private int pvCount = 0; // #DEBUG
+    private int alphaCount = 0; // #DEBUG
+    private readonly int[] cutoffIdx = new int[512]; // #DEBUG
+    private readonly int[] alphaIdx = new int[512]; // #DEBUG
+
+    int QsearchTTProbe = 0; // #DEBUG
+    int QsearchTTHit = 0; // #DEBUG
+    int ABsearchTTProbe = 0; // #DEBUG
+    int ABsearchTTHit = 0; // #DEBUG
+
     private int EvaluateStatically()
     {
         int mgScore = 0, egScore = 0, phase = 0;
@@ -153,6 +164,19 @@ public class MyBot : IChessBot
 
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
+        if (inQSearch)  // #DEBUG
+        {  // #DEBUG
+            QsearchTTProbe++;  // #DEBUG
+            if (TTzobrist == zobrist)  // #DEBUG
+                QsearchTTHit++;  // #DEBUG
+        }  // #DEBUG
+        else  // #DEBUG
+        {  // #DEBUG
+            ABsearchTTProbe++;  // #DEBUG
+            if (TTzobrist == zobrist)  // #DEBUG
+                ABsearchTTHit++;  // #DEBUG
+        }  // #DEBUG
+
         // The TT entry is from a different position, so no best move is available
         if (TTzobrist != zobrist)
             TTm = default;
@@ -175,6 +199,8 @@ public class MyBot : IChessBot
         var pvNode = alpha != beta - 1;
         var moves = board.GetLegalMoves(inQSearch);
         Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
+
+        int latestAlpha = 0;  // #DEBUG
 
         foreach (Move m in moves)
         {
@@ -213,6 +239,8 @@ public class MyBot : IChessBot
 
             if (score > alpha)
             {
+                latestAlpha = moveCount;  // #DEBUG
+
                 TTnodeType = 1; // PV node
                 alpha = score;
                 TTm = m;
@@ -222,6 +250,9 @@ public class MyBot : IChessBot
 
                 if (score >= beta)
                 {
+                    cutoffCount++;  // #DEBUG
+                    cutoffIdx[moveCount]++;  // #DEBUG
+
                     TTnodeType = 2; // Fail high
                     if (!m.IsCapture)
                     {
@@ -245,6 +276,13 @@ public class MyBot : IChessBot
 
             transpositionTable[TTidx] = (zobrist, depth, alpha, TTnodeType, TTm);
         }
+
+        if (TTnodeType == 1)  // #DEBUG
+        {  // #DEBUG
+            alphaIdx[latestAlpha]++;  // #DEBUG
+            pvCount++;  // #DEBUG
+        }  // #DEBUG
+        else if (TTnodeType == 3) alphaCount++;  // #DEBUG
 
         return alpha;
     }
@@ -273,6 +311,25 @@ public class MyBot : IChessBot
         Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {nodes}");
         Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
         Console.WriteLine($" pv{GetPV(bestMove, 15)}");
+    }
+
+    [NoTokenCount]
+    private void PrintStatistics()
+    {
+        Console.WriteLine("qsearch TT hit rate: " + (100d * QsearchTTHit / QsearchTTProbe).ToString("0.##\\%"));
+        Console.WriteLine("AB search TT hit rate: " + (100d * ABsearchTTHit / ABsearchTTProbe).ToString("0.##\\%"));
+
+        Console.WriteLine("pv: " + (100d * pvCount / (cutoffCount + pvCount + alphaCount)).ToString("0.##\\%"));
+        Console.WriteLine("alpha cut: " + (100d * alphaCount / (cutoffCount + pvCount + alphaCount)).ToString("0.##\\%"));
+        Console.WriteLine("beta cut: " + (100d * cutoffCount / (cutoffCount + pvCount + alphaCount)).ToString("0.##\\%"));
+
+        Console.WriteLine("beta cutoff accuracy:");
+        for (int i = 0; i < 20; i++)
+            Console.WriteLine("" + i + ": " + (100d * cutoffIdx[i] / cutoffCount).ToString("0.##\\%"));
+
+        Console.WriteLine("pv move accuracy:");
+        for (int i = 0; i < 20; i++)
+            Console.WriteLine("" + i + ": " + (100d * alphaIdx[i] / pvCount).ToString("0.##\\%"));
     }
 
     public Move Think(Board _board, Timer _timer)
@@ -304,6 +361,8 @@ public class MyBot : IChessBot
             // Search was terminated at root as it was a repeated position or a 50 move draw
             if (bestMove == default) break; // #DEBUG
             SendReport(depth, score);       // #DEBUG
+
+            // PrintStatistics(); // #DEBUG
 
             depth++;
         }
