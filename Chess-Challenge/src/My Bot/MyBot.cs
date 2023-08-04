@@ -194,9 +194,9 @@ public class MyBot : IChessBot
           : move.IsPromotion && move.PromotionPieceType is PieceType.Queen ? 1
           // 3. MVV-LVA for captures
           : move.IsCapture ? 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType
-          // 4. Killer heuristic for quiet moves
+          // 5. Killer heuristic for quiet moves
           : killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move ? 10000
-          // 5. History heuristic for quiet moves
+          // 6. History heuristic for quiet moves
           : 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index];
 
     /// <summary>
@@ -428,6 +428,17 @@ public class MyBot : IChessBot
         Console.WriteLine("pv move accuracy:");
         for (int i = 0; i < 20; i++)
             Console.WriteLine("" + i + ": " + (100d * alphaIdx[i] / pvCount).ToString("0.##\\%"));
+    }
+
+    [NoTokenCount]
+    public Move Think(Board _board, int maxDepth)
+    {
+        timer = new Timer(100000000);
+        board = _board;
+
+        var score = AlphaBeta(maxDepth, -100_000_000, 100_000_000, true, true);
+        SendReport(maxDepth, score);
+        return bestMove;
     }
 
     /// <summary>

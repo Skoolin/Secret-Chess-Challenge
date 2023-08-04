@@ -80,9 +80,11 @@ public class UCI
     {
         var main = 0;
         var increment = 0;
+        var maxDepth = 0;
 
         var mainTokenName = _board.IsWhiteToMove ? "wtime" : "btime";
         var incrementTokenName = _board.IsWhiteToMove ? "winc" : "binc";
+        var depthTokenName = "depth";
 
         for (var i = 1; i < tokens.Length; i++)
         {
@@ -94,13 +96,25 @@ public class UCI
             {
                 increment = int.Parse(tokens[++i]);
             }
+            else if (tokens[i] == depthTokenName)
+            {
+                maxDepth = int.Parse(tokens[++i]);
+            }
         }
 
         // The `Timer` class stores the remaining time for the current player's move without
         // considering the time increment, so just add it to the main time.
-        var timer = new Timer(main + increment);
+        Move bestMove = default;
+        if (maxDepth == 0)
+        {
+            var timer = new Timer(main + increment);
+            bestMove = _bot.Think(_board, timer);
+        }
+        else
+        {
+            bestMove = _bot.Think(_board, maxDepth);
+        }
 
-        var bestMove = _bot.Think(_board, timer);
         var uciMove = bestMove.ToUCIString();
 
         Console.WriteLine($"bestmove {uciMove}");
