@@ -160,7 +160,7 @@ public class MyBot : IChessBot
             return TTeval;
 
         int TTnodeType = 3,
-            moveCount = -1,
+            moveCount = 0,
             score,
             badQuietCount = 1; // starting index 1
 
@@ -184,7 +184,7 @@ public class MyBot : IChessBot
             // this and later moves probably won't.
             if (!root
                 && depth < 8
-                && moveCount > 0 // don't prune TT move
+                && moveCount > 1 // don't prune TT move
                 && eval + FPMargin * depth + FPFixedMargin < alpha // threshhold of 50 + 100 * depth centipawns
                 && !m.IsCapture
                 && !m.IsPromotion)
@@ -194,12 +194,12 @@ public class MyBot : IChessBot
 
             // late move reduction
             if (depth <= 2
-                || moveCount <= 4
+                || moveCount <= 5
                 || alpha < (score = -AlphaBeta(depth - (int)(pvNode ? 2 : 1 + Math.Log2(depth)), -alpha - 1, -alpha)))
 
                 // zero window search
                 if (root
-                || moveCount > 0
+                || moveCount > 1
                 || alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
                 && score < beta)
 
@@ -240,7 +240,7 @@ public class MyBot : IChessBot
         if (!inQSearch)
         {
             // Checkmate or stalemate
-            if (moveCount < 0)
+            if (moveCount < 1)
                 return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
 
             transpositionTable[TTidx] = (zobrist, depth, alpha, TTnodeType, TTm);
