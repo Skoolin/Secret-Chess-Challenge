@@ -11,7 +11,7 @@ public class MyBot : IChessBot
     [Tunable] public int FPMargin { get; set; } = 384; // #DEBUG
     [Tunable] public int FPFixedMargin { get; set; } = 240; // #DEBUG
     [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
-    [Tunable] public int HardTimeLimit { get; set; } = 10; // #DEBUG
+    [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
     // Node counter for debugging purposes
     private int nodes;   // #DEBUG
 
