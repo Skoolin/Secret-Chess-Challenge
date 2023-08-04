@@ -6,7 +6,7 @@ using static ChessChallenge.Application.UCI;          // #DEBUG
 
 public class MyBot : IChessBot
 {
-    [Tunable] public int TempoBonus { get; set; } = 96; // #DEBUG
+    [Tunable] public int TempoBonus { get; set; } = 40; // #DEBUG
     [Tunable] public int RFPMargin { get; set; } = 384; // #DEBUG
     [Tunable] public int FPMargin { get; set; } = 384; // #DEBUG
     [Tunable] public int FPFixedMargin { get; set; } = 240; // #DEBUG
