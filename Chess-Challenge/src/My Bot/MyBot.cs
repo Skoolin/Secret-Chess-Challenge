@@ -148,7 +148,8 @@ public class MyBot : IChessBot
 
         // internal iterative deepening
         if (depth >= 4 && transpositionTable[TTidx].Item1 != zobrist)
-            AlphaBeta(depth - 2, alpha, beta, nullMoveAllowed, root);
+            // internal iterative reductions (--depth)
+            AlphaBeta(--depth - 2, alpha, beta, nullMoveAllowed, root);
 
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
