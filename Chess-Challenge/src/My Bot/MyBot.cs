@@ -12,8 +12,8 @@ public class MyBot : IChessBot
     [Tunable] public int FPFixedMargin { get; set; } = 240; // #DEBUG
     [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
     [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
-    // Node counter for debugging purposes
-    private int nodes;   // #DEBUG
+
+    private readonly Statistics stats = new(); // #DEBUG
 
     // Save received search parameters to simplify function signatures
     private Timer timer;
@@ -121,18 +121,6 @@ public class MyBot : IChessBot
          3320188314820977155799138320m,  4241380326259664662758309136m,  3626056010002903460997054224m,  2383256618496987179765743120m,
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
-    private int cutoffCount = 0; // #DEBUG
-    private int pvCount = 0; // #DEBUG
-    private int alphaCount = 0; // #DEBUG
-    private readonly int[] cutoffIdx = new int[512]; // #DEBUG
-    private readonly int[] alphaIdx = new int[512]; // #DEBUG
-
-    int QsearchTTProbe = 0; // #DEBUG
-    int QsearchTTHit = 0; // #DEBUG
-    int ABsearchTTProbe = 0; // #DEBUG
-    int ABsearchTTHit = 0; // #DEBUG
-
-
     /// <summary>
     /// Static evaluation using Piece Square Tables and Tapered Evaluation
     /// https://www.chessprogramming.org/Tapered_Eval
@@ -227,7 +215,7 @@ public class MyBot : IChessBot
     /// <returns>evaluation of the position searched up to <paramref name="depth"/></returns>
     private int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
     {
-        nodes++; // #DEBUG
+        stats.Nodes++; // #DEBUG
 
         // Check extension in case of forcing sequences
         if (depth >= 0 && board.IsInCheck())
@@ -262,18 +250,7 @@ public class MyBot : IChessBot
 
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
-        if (inQSearch)  // #DEBUG
-        {  // #DEBUG
-            QsearchTTProbe++;  // #DEBUG
-            if (TTzobrist == zobrist)  // #DEBUG
-                QsearchTTHit++;  // #DEBUG
-        }  // #DEBUG
-        else  // #DEBUG
-        {  // #DEBUG
-            ABsearchTTProbe++;  // #DEBUG
-            if (TTzobrist == zobrist)  // #DEBUG
-                ABsearchTTHit++;  // #DEBUG
-        }  // #DEBUG
+        stats.TraceTTProbe(inQSearch, zobrist, TTzobrist); // #DEBUG
 
         // The TT entry is from a different position, so no best move is available
         if (TTzobrist != zobrist)
@@ -348,8 +325,7 @@ public class MyBot : IChessBot
 
                 if (score >= beta)
                 {
-                    cutoffCount++;  // #DEBUG
-                    cutoffIdx[moveCount]++;  // #DEBUG
+                    stats.TraceCutoffs(moveCount);  // #DEBUG
 
                     TTnodeType = 2; // Fail high
                     if (!m.IsCapture)
@@ -375,12 +351,7 @@ public class MyBot : IChessBot
             transpositionTable[TTidx] = (zobrist, depth, alpha, TTnodeType, TTm);
         }
 
-        if (TTnodeType == 1)  // #DEBUG
-        {  // #DEBUG
-            alphaIdx[latestAlpha]++;  // #DEBUG
-            pvCount++;  // #DEBUG
-        }  // #DEBUG
-        else if (TTnodeType == 3) alphaCount++;  // #DEBUG
+        stats.TracePVOrAllNodes(TTnodeType, latestAlpha); // #DEBUG
 
         return alpha;
     }
@@ -406,28 +377,9 @@ public class MyBot : IChessBot
     [NoTokenCount]
     private void SendReport(int depth, int score)
     {
-        Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {nodes}");
+        Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {stats.Nodes}");
         Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
         Console.WriteLine($" pv{GetPV(bestMove, 15)}");
-    }
-
-    [NoTokenCount]
-    private void PrintStatistics()
-    {
-        Console.WriteLine("qsearch TT hit rate: " + (100d * QsearchTTHit / QsearchTTProbe).ToString("0.##\\%"));
-        Console.WriteLine("AB search TT hit rate: " + (100d * ABsearchTTHit / ABsearchTTProbe).ToString("0.##\\%"));
-
-        Console.WriteLine("pv: " + (100d * pvCount / (cutoffCount + pvCount + alphaCount)).ToString("0.##\\%"));
-        Console.WriteLine("alpha cut: " + (100d * alphaCount / (cutoffCount + pvCount + alphaCount)).ToString("0.##\\%"));
-        Console.WriteLine("beta cut: " + (100d * cutoffCount / (cutoffCount + pvCount + alphaCount)).ToString("0.##\\%"));
-
-        Console.WriteLine("beta cutoff accuracy:");
-        for (int i = 0; i < 20; i++)
-            Console.WriteLine("" + i + ": " + (100d * cutoffIdx[i] / cutoffCount).ToString("0.##\\%"));
-
-        Console.WriteLine("pv move accuracy:");
-        for (int i = 0; i < 20; i++)
-            Console.WriteLine("" + i + ": " + (100d * alphaIdx[i] / pvCount).ToString("0.##\\%"));
     }
 
     [NoTokenCount]
@@ -458,7 +410,7 @@ public class MyBot : IChessBot
         timer = _timer;
         board = _board;
 
-        nodes = 0;  // #DEBUG
+        stats.Nodes = 0;  // #DEBUG
 
         bestMove = default;
 
@@ -483,7 +435,7 @@ public class MyBot : IChessBot
             if (bestMove == default) break; // #DEBUG
             SendReport(depth, score);       // #DEBUG
 
-            // PrintStatistics(); // #DEBUG
+            // stats.PrintStatistics(); // #DEBUG
 
             depth++;
         }
