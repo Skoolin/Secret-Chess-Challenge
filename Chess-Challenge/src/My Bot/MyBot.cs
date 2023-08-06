@@ -124,7 +124,7 @@ public class MyBot : IChessBot
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
     // these 4 can be in the psqt without additional token cost!!
-    byte[] AdjacentBitboard = { 0b10000000, 0b10100000, 0b01010000, 0b00101000, 0b00010100, 0b00001010, 0b00000101, 0b00000010 }, // #DEBUG
+    byte[] AdjacentBitboard = { 0b00000010, 0b00000101, 0b00001010, 0b00010100, 0b00101000, 0b01010000, 0b10100000, 0b01000000 }, // #DEBUG
         MgPassedRank = { 0, 2, 3, 3, 21, 36, 55 }, // #DEBUG
         EgPassedRank = { 0, 6, 7, 8, 14, 35, 52 }, // #DEBUG
         PhalanxRank = { 0, 1, 2, 3, 6, 10, 17 }; // #DEBUG
@@ -169,6 +169,12 @@ public class MyBot : IChessBot
                         ulong forwardMask = 0xFFFFFFFFFFFFFFFFUL;
                         if (xor is 56) forwardMask <<= 8 * (rank + 1);
                         else forwardMask >>= 8 * (8 - rank);
+
+                        ulong passerMask = forwardMask // all squares in front
+                            & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL);
+
+                        BitboardHelper.VisualizeBitboard(passerMask);
+                        break;
 
                         if ((forwardMask // all squares in front
                             & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL) // own and adjacent files
