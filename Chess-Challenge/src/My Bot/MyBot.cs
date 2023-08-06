@@ -173,9 +173,6 @@ public class MyBot : IChessBot
                         ulong passerMask = forwardMask // all squares in front
                             & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL);
 
-                        BitboardHelper.VisualizeBitboard(passerMask);
-                        break;
-
                         if ((forwardMask // all squares in front
                             & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL) // own and adjacent files
                             & enemyPawnBoard) is 0) // check if there are any pawns on those squares
@@ -478,10 +475,6 @@ public class MyBot : IChessBot
     {
         timer = _timer;
         board = _board;
-
-        EvaluateStatically();
-
-        return board.GetLegalMoves()[0];
 
         stats.Nodes = 0;  // #DEBUG
 
