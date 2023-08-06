@@ -1,6 +1,7 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
+using static System.Numerics.BitOperations;
 using static ChessChallenge.Application.TokenCounter; // #DEBUG
 using static ChessChallenge.Application.UCI;          // #DEBUG
 
@@ -123,6 +124,12 @@ public class MyBot : IChessBot
          3320188314820977155799138320m,  4241380326259664662758309136m,  3626056010002903460997054224m,  2383256618496987179765743120m,
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
+    // these 4 can be in the psqt without additional token cost!!
+    byte[] AdjacentBitboard = { 0b00000010, 0b00000101, 0b00001010, 0b00010100, 0b00101000, 0b01010000, 0b10100000, 0b10000000 },
+        MgPassedRank = { 0, 2, 3, 3, 21, 36, 55 },
+        EgPassedRank = { 0, 6, 7, 8, 14, 35, 52 },
+        PhalanxRank = { 0, 1, 2, 3, 6, 10, 17 };
+
     /// <summary>
     /// Static evaluation using Piece Square Tables and Tapered Evaluation
     /// https://www.chessprogramming.org/Tapered_Eval
@@ -137,28 +144,82 @@ public class MyBot : IChessBot
         // Colors are represented by the xor value of the PSQT flip
         foreach (var xor in new[] { 56, 0 })
         {
+            int bishopCount = 0;
+
+            ulong enemyPawnBoard = board.GetPieceBitboard(PieceType.Pawn, xor is 0);
+            ulong ourPawnBoard = board.GetPieceBitboard(PieceType.Pawn, xor is 56);
+
             for (var piece = 0; piece < 6; piece++)
             {
                 ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
                 while (bitboard != 0)
                 {
-                    int index = piece +                                          // piece index
-                        16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
-                        ^ xor);                                                  // flip board for white pieces
+                    int square = TrailingZeroCount(bitboard);
+                    bitboard ^= 1UL << square;
+
+                    int index = piece + // piece index
+                        16 * (square ^ xor);    // row of square
+
+                    int file = square & 0b111,
+                        rank = square >> 3;
+
+                    ulong rankBoard = 1UL << file;
+                    if (piece == 0) // pawn
+                    {
+                        // passed (~73 elo for SF)
+                        ulong forwardMask = 0xFFFFFFFFFFFFFFFFUL;
+                        if (xor is 56) forwardMask <<= 8 * rank;
+                        else forwardMask >>= 8 * rank;
+                        if ((forwardMask // all squares in front
+                            & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL) // own and adjacent files
+                            & enemyPawnBoard) is 0) // check if there are any pawns on those squares
+                        {
+                            mgScore += MgPassedRank[rank];
+                            egScore += EgPassedRank[rank];
+                        }
+
+                        // isolated (~15elo for SF)
+                        if (((AdjacentBitboard[file] * 0x0101010101010101UL) & ourPawnBoard) != 0)
+                        {
+                            mgScore--;
+                            egScore -= 3;
+                        }
+
+                        // phalanx (supported would also be nice, totgether ~30elo for SF)
+                        if (((ulong)AdjacentBitboard[file] << rank & ourPawnBoard) != 0)
+                        {
+                            mgScore += PhalanxRank[rank];
+                            egScore += PhalanxRank[rank] * (rank - 3) / 4;
+                        }
+                    }
+
+                    // rook on open file (~15elo for SF)
+                    if (piece == 3
+                        && (rankBoard * 0x0101010101010101UL & enemyPawnBoard) == 0)
+                    {
+                        mgScore += 4;
+                        egScore += 2;
+                    }
+
+                    // bishop pair (we might not need this)
+                    if (piece == 2)
+                        bishopCount++;
 
                     mgScore += pieceSquareTables[index];
                     egScore += pieceSquareTables[index + 6];
+
                     // Save 8 tokens by packing a lookup table into a single int
-                    phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
+                    phase += 0b_1010_0101_0011_0011_0000 >> 4 * piece & 0xF;
                 }
             }
+            int bonus = bishopCount > 1 ? 4 : 0;
 
-            mgScore = -mgScore;
-            egScore = -egScore;
+            mgScore = -mgScore - bonus;
+            egScore = -egScore - bonus;
         }
 
         // Interpolate between game phases and add a bonus for the side to move
-        return TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
+        return TempoBonus + (mgScore * phase + egScore * (64 - phase)) * 24 / 64 * (board.IsWhiteToMove ? 1 : -1);
     }
 
     /// <summary>
