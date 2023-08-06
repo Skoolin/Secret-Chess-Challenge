@@ -63,6 +63,8 @@ public class MyBot : IChessBot
 
     /// <summary>
     /// Negative Plausibility: Extension of History Heuristic.
+    /// http://www.aifactory.co.uk/newsletter/2007_01_neg_plausibility.htm
+    /// 
     /// Stores quiets that didn't raise alpha and that "delayed" a beta cutoff from occurring.
     /// These moves will get a penalty in the historyTable when a move with lower score causes a beta cutoff to occur.
     /// </summary>
@@ -338,7 +340,7 @@ public class MyBot : IChessBot
                     break;
                 }
             }
-            if (!m.IsPromotion && !m.IsCapture)
+            if (!m.IsCapture)
                 badQuiets[badQuietCount++] = m;
         }
 
