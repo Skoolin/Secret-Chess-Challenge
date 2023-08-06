@@ -1,7 +1,7 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
-using static System.Numerics.BitOperations;
+using System.Numerics;
 using static ChessChallenge.Application.TokenCounter; // #DEBUG
 using static ChessChallenge.Application.UCI;          // #DEBUG
 
@@ -125,10 +125,10 @@ public class MyBot : IChessBot
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
     // these 4 can be in the psqt without additional token cost!!
-    byte[] AdjacentBitboard = { 0b00000010, 0b00000101, 0b00001010, 0b00010100, 0b00101000, 0b01010000, 0b10100000, 0b10000000 },
-        MgPassedRank = { 0, 2, 3, 3, 21, 36, 55 },
-        EgPassedRank = { 0, 6, 7, 8, 14, 35, 52 },
-        PhalanxRank = { 0, 1, 2, 3, 6, 10, 17 };
+    byte[] AdjacentBitboard = { 0b00000010, 0b00000101, 0b00001010, 0b00010100, 0b00101000, 0b01010000, 0b10100000, 0b10000000 }, // #DEBUG
+        MgPassedRank = { 0, 2, 3, 3, 21, 36, 55 }, // #DEBUG
+        EgPassedRank = { 0, 6, 7, 8, 14, 35, 52 }, // #DEBUG
+        PhalanxRank = { 0, 1, 2, 3, 6, 10, 17 }; // #DEBUG
 
     /// <summary>
     /// Static evaluation using Piece Square Tables and Tapered Evaluation
@@ -154,8 +154,7 @@ public class MyBot : IChessBot
                 ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
                 while (bitboard != 0)
                 {
-                    int square = TrailingZeroCount(bitboard);
-                    bitboard ^= 1UL << square;
+                    int square = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
 
                     int index = piece + // piece index
                         16 * (square ^ xor);    // row of square
@@ -185,8 +184,8 @@ public class MyBot : IChessBot
                             egScore -= 3;
                         }
 
-                        // phalanx (supported would also be nice, totgether ~30elo for SF)
-                        if (((ulong)AdjacentBitboard[file] << rank & ourPawnBoard) != 0)
+                        // phalanx (supported would also be nice, together ~30elo for SF)
+                        if (((ulong)AdjacentBitboard[file] << rank * 8 & ourPawnBoard) != 0)
                         {
                             mgScore += PhalanxRank[rank];
                             egScore += PhalanxRank[rank] * (rank - 3) / 4;
