@@ -63,7 +63,7 @@ public class MyBot : IChessBot
 
     /// <summary>
     /// Negative Plausibility: Extension of History Heuristic.
-    /// Stores quiets that didn't raise alpha and that "delayed" a beta cutoff from occuring.
+    /// Stores quiets that didn't raise alpha and that "delayed" a beta cutoff from occurring.
     /// These moves will get a penalty in the historyTable when a move with lower score causes a beta cutoff to occur.
     /// </summary>
     private readonly Move[] badQuiets = new Move[512];
