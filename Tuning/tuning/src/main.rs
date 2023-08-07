@@ -19,7 +19,7 @@ fn main() {
     let mut weights = get_weights();
 
     let k = get_optimal_k(&positions, &weights);
-    tuner::tune(&positions, &mut weights, 300, k);
+    tuner::tune(&mut positions, &mut weights, 300, k);
 
     print_weights(&weights);
 }

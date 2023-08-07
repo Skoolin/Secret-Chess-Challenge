@@ -1,6 +1,9 @@
 use crate::types::*;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
-const LEARNING_RATE: f32 = 3.0;
+const LEARNING_RATE: f32 = 0.1;
+const BATCH_SIZE: usize = 10000;
 
 pub fn find_optimal_k(positions: &[Position], weights: &[f32]) -> f32 {
     let mut best_k = 0.0;
@@ -20,17 +23,30 @@ pub fn find_optimal_k(positions: &[Position], weights: &[f32]) -> f32 {
     best_k
 }
 
-pub fn tune(positions: &[Position], weights: &mut [f32], epochs: usize, k: f32) {
+pub fn tune(positions: &mut [Position], weights: &mut [f32], epochs: usize, k: f32) {
     println!("Starting tuning...");
     let now = std::time::Instant::now();
 
-    for epoch in 0..epochs {
-        let mse = mean_squared_error(positions, weights, k);
-        println!("#{:<3} MSE: {:.8}", epoch + 1, mse);
+    let mut lr = LEARNING_RATE;
 
-        let gradient = compute_gradient(positions, weights, k);
-        for index in 0..weights.len() {
-            weights[index] += LEARNING_RATE * gradient[index];
+    let mut rng = thread_rng();
+    for epoch in 1..epochs {
+
+        if epoch % 100 == 0 {
+            lr /= 10f32;
+        }
+
+        positions.shuffle(&mut rng);
+
+        let mse = mean_squared_error(positions, weights, k);
+        println!("#{:<3} MSE: {:.8}", epoch, mse);
+
+
+        for batch in positions.chunks(BATCH_SIZE) {
+            let gradient = compute_gradient(batch, weights, k);
+            for index in 0..weights.len() {
+                weights[index] += lr * gradient[index];
+            }
         }
     }
 
@@ -52,7 +68,9 @@ fn compute_gradient(positions: &[Position], weights: &mut [f32], k: f32) -> Vec<
     }
 
     for index in 0..gradient.len() {
-        gradient[index] /= counts[index] as f32;
+        if counts[index] > 0 {
+            gradient[index] /= counts[index] as f32;
+        }
     }
 
     gradient
@@ -66,8 +84,8 @@ fn predict(position: &Position, weights: &[f32], k: f32) -> f32 {
     sigmoid(prediction, k)
 }
 
-fn sigmoid(x: f32, k: f32) -> f32 {
-    1.0 / (1.0 + 10f32.powf(-k * x / 400.0))
+fn sigmoid(x: f32, _k: f32) -> f32 {
+    1.0 / (1.0 + 10f32.powf(-1.5 * x / 400.0))
 }
 
 fn mean_squared_error(positions: &[Position], weights: &[f32], k: f32) -> f32 {
