@@ -215,6 +215,10 @@ public class MyBot : IChessBot
                 endGame += 5;
             }
         }
+
+        /******************
+         * king on open file
+         ******************/
         if (piece == 5) // king
         {
             if ((fileMask & ourPawnBoard) == 0) // open king
