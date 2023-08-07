@@ -125,9 +125,104 @@ public class MyBot : IChessBot
 
     // these 4 can be in the psqt without additional token cost!!
     byte[] AdjacentBitboard = { 0b00000010, 0b00000101, 0b00001010, 0b00010100, 0b00101000, 0b01010000, 0b10100000, 0b01000000 }, // #DEBUG
-        MgPassedRank = { 0, 2, 3, 3, 21, 36, 55 }, // #DEBUG
-        EgPassedRank = { 0, 6, 7, 8, 14, 35, 52 }, // #DEBUG
-        PhalanxRank = { 0, 1, 2, 3, 6, 10, 17 }; // #DEBUG
+        MgPassedRankBonus = { 0, 2, 3, 3, 21, 36, 55 }, // #DEBUG
+        EgPassedRankBonus = { 0, 6, 7, 8, 14, 35, 52 }, // #DEBUG
+        ConnectedRankBonus = { 0, 0, 1, 2, 3, 6, 10, 17 }; // #DEBUG
+
+    int MgIsolatedBonus = 1;
+    int EgIsolatedBonus = 3;
+
+    (int middleGame, int endGame) EvaluatePawn(int square, ulong enemyPawnBoard, ulong ourPawnBoard, bool white)
+    {
+        int middleGame = 0, endGame = 0;
+
+        int file = square & 0b111;
+        int rank = square >> 3;
+
+        int rankFromPlayerPerspective = white ? rank : 7 - rank;
+
+        // helpful masks
+        ulong fileMask = 0x0101010101010101UL << file;
+        ulong adjacentMask = 0x0101010101010101UL * AdjacentBitboard[file];
+
+        /******************
+         * passed pawn
+         ******************/
+        ulong forwardMask = white
+            ? 0xFFFFFFFFFFFFFFFFUL << (8 * (rankFromPlayerPerspective + 1))
+            : 0xFFFFFFFFFFFFFFFFUL >> (8 * (rankFromPlayerPerspective + 1));
+        ulong passedMask =
+            forwardMask // all squares forward of pawn
+            & (fileMask | adjacentMask); // that on the same or neighboring files
+
+        if ((enemyPawnBoard & passedMask) == 0) // passedPawn!
+        {
+            middleGame += MgPassedRankBonus[rankFromPlayerPerspective];
+            endGame += EgPassedRankBonus[rankFromPlayerPerspective];
+        }
+
+        /******************
+         * isolated pawn
+         ******************/
+        if ((ourPawnBoard & adjacentMask) == 0) // isolated pawn!
+        {
+            middleGame -= MgIsolatedBonus;
+            endGame -= EgIsolatedBonus;
+        }
+
+        /******************
+         * connected pawns
+         ******************/
+        ulong rankMask
+            = (0b11111111UL << (rank * 8)) // phalanx pawns
+            | (0b11111111UL << ((white ? -8 : 8) + rank * 8)); // supporting pawns
+        ulong connectedMask = rankMask & adjacentMask;
+
+        if ((ourPawnBoard & connectedMask) != 0) // connected!
+        {
+            middleGame += ConnectedRankBonus[rankFromPlayerPerspective];
+            endGame += ConnectedRankBonus[rankFromPlayerPerspective];
+        }
+
+        return (middleGame, endGame);
+    }
+
+    (int middleGame, int endGame) EvaluatePiece(int piece, int square, ulong enemyPawnBoard, ulong ourPawnBoard, bool white)
+    {
+        int middleGame = 0, endGame = 0;
+
+        int file = square & 0b111;
+        int rank = square >> 3;
+
+        int rankFromPlayerPerspective = white ? rank : 7 - rank;
+
+        // helpful masks
+        ulong fileMask = 0x0101010101010101UL << file;
+
+        /******************
+         * rook on open file
+         ******************/
+        if (piece == 3) // rook
+        {
+            if ((fileMask & ourPawnBoard) == 0) // semi open file
+            {
+                middleGame += 4;
+                endGame += 1;
+            }
+            if ((fileMask & (ourPawnBoard | enemyPawnBoard)) == 0) // open file
+            {
+                middleGame += 6;
+                endGame += 5;
+            }
+        }
+        if (piece == 5) // king
+        {
+            if ((fileMask & ourPawnBoard) == 0) // open king
+                middleGame -= 4;
+        }
+
+        return (middleGame, endGame);
+    }
 
     /// <summary>
     /// Static evaluation using Piece Square Tables and Tapered Evaluation
@@ -143,8 +238,6 @@ public class MyBot : IChessBot
         // Colors are represented by the xor value of the PSQT flip
         foreach (var xor in new[] { 56, 0 })
         {
-            int bishopCount = 0;
-
             ulong enemyPawnBoard = board.GetPieceBitboard(PieceType.Pawn, xor is 0);
             ulong ourPawnBoard = board.GetPieceBitboard(PieceType.Pawn, xor is 56);
 
@@ -158,71 +251,23 @@ public class MyBot : IChessBot
                     int index = piece + // piece index
                         16 * (square ^ xor);    // row of square
 
-                    int file = square & 0b111,
-                        rank = square >> 3,
-                        adjustedRank = (square ^ xor) >> 3;
+                    var (middleGame, endGame) = piece == 0
+                        ? EvaluatePawn(square, enemyPawnBoard, ourPawnBoard, xor is 56)
+                        : EvaluatePiece(piece, square, enemyPawnBoard, ourPawnBoard, xor is 56);
 
-                    ulong rankBoard = 1UL << file;
-                    if (piece == 0) // pawn
-                    {
-                        // passed (~73 elo for SF)
-                        ulong forwardMask = 0xFFFFFFFFFFFFFFFFUL;
-                        if (xor is 56) forwardMask <<= 8 * (rank + 1);
-                        else forwardMask >>= 8 * (8 - rank);
-
-                        ulong passerMask = forwardMask // all squares in front
-                            & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL);
-
-                        if ((forwardMask // all squares in front
-                            & ((AdjacentBitboard[file] | rankBoard) * 0x0101010101010101UL) // own and adjacent files
-                            & enemyPawnBoard) is 0) // check if there are any pawns on those squares
-                        {
-                            mgScore += MgPassedRank[adjustedRank];
-                            egScore += EgPassedRank[adjustedRank];
-                        }
-
-                        // isolated (~15elo for SF)
-                        if (((AdjacentBitboard[file] * 0x0101010101010101UL) & ourPawnBoard) != 0)
-                        {
-                            mgScore--;
-                            egScore -= 3;
-                        }
-
-                        // phalanx (supported would also be nice, together ~30elo for SF)
-                        if (((1UL << index+1) & 0xFEFEFEFEFEFEFEFEUL & ourPawnBoard) != 0)
-                        {
-                            mgScore += PhalanxRank[adjustedRank];
-                            egScore += PhalanxRank[adjustedRank] * (rank - 3) / 4;
-                        }
-                    }
-
-                    // rook on open file (~15elo for SF)
-                    if (piece == 3
-                        && (rankBoard * 0x0101010101010101UL & enemyPawnBoard) == 0)
-                    {
-                        mgScore += 4;
-                        egScore += 2;
-                    }
-
-                    // bishop pair (we might not need this)
-                    if (piece == 2)
-                        bishopCount++;
-
-                    mgScore += pieceSquareTables[index];
-                    egScore += pieceSquareTables[index + 6];
+                    mgScore += pieceSquareTables[index] + middleGame;
+                    egScore += pieceSquareTables[index + 6] + endGame;
 
                     // Save 8 tokens by packing a lookup table into a single int
-                    phase += 0b_1010_0101_0011_0011_0000 >> 4 * piece & 0xF;
+                    phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
                 }
             }
-            int bonus = bishopCount > 1 ? 4 : 0;
-
-            mgScore = -mgScore - bonus;
-            egScore = -egScore - bonus;
+            mgScore = -mgScore;
+            egScore = -egScore;
         }
 
         // Interpolate between game phases and add a bonus for the side to move
-        return TempoBonus + (mgScore * phase + egScore * (64 - phase)) * 24 / 64 * (board.IsWhiteToMove ? 1 : -1);
+        return TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
     }
 
     /// <summary>
