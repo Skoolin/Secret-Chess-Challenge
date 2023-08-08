@@ -13,7 +13,11 @@ fn main() {
 
     let mut positions = vec![];
     for path in args.skip(1) {
+        if path.contains("book") {
+            load_book_positions(path, &mut positions);
+        } else {
         load_positions(path, &mut positions);
+    }
     }
 
     let mut weights = get_weights();
@@ -57,6 +61,14 @@ fn print_psqt(weights: &[f32], start: usize) {
         }
         println!();
     }
+}
+
+fn load_book_positions(path: String, positions: &mut Vec<Position>) {
+    println!("Preparing positions from {}...", path);
+    parser::parse_book_file(&path)
+        .into_iter()
+        .map(|(board, label)| Position::new(board, label))
+        .for_each(|position| positions.push(position));
 }
 
 fn load_positions(path: String, positions: &mut Vec<Position>) {
