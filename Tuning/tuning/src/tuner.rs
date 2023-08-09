@@ -83,8 +83,8 @@ fn predict(position: &Position, weights: &[f32], k: f32) -> f32 {
     sigmoid(prediction, k)
 }
 
-fn sigmoid(x: f32, _k: f32) -> f32 {
-    1.0 / (1.0 + 10f32.powf(-1.5 * x / 400.0))
+fn sigmoid(x: f32, k: f32) -> f32 {
+    1.0 / (1.0 + 10f32.powf(-k * x / 400.0))
 }
 
 fn mean_squared_error(positions: &[Position], weights: &[f32], k: f32) -> f32 {

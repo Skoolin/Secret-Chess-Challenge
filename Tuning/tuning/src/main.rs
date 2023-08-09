@@ -8,6 +8,9 @@ mod parser;
 mod tuner;
 mod types;
 
+const EPOCHS: usize = 300;
+const K: f32 = 1.5;
+
 fn main() {
     let args = env::args();
 
@@ -22,8 +25,7 @@ fn main() {
 
     let mut weights = get_weights();
 
-    let k = get_optimal_k(&positions, &weights);
-    tuner::tune(&mut positions, &mut weights, 300, k);
+    tuner::tune(&mut positions, &mut weights, EPOCHS, K);
 
     print_weights(&weights);
 }
@@ -79,13 +81,6 @@ fn load_positions(path: String, positions: &mut Vec<Position>) {
         .for_each(|position| positions.push(position));
 }
 
-fn get_optimal_k(positions: &[Position], weights: &[f32]) -> f32 {
-    println!("Finding optimal k...");
-    let k = tuner::find_optimal_k(&positions, &weights);
-    println!("Optimal k: {}", k);
-    k
-}
-
 fn get_weights() -> Vec<f32> {
     let mut weights = vec![10.0; SIZE_FEATURES];
     for (piece, value) in [100.0, 300.0, 325.0, 500.0, 900.0].iter().enumerate() {
@@ -93,6 +88,14 @@ fn get_weights() -> Vec<f32> {
         weights[IDX_MATERIAL_EG + piece] = *value;
     }
     weights
+}
+
+#[allow(dead_code)]
+fn get_optimal_k(positions: &[Position], weights: &[f32]) -> f32 {
+    println!("Finding optimal k...");
+    let k = tuner::find_optimal_k(&positions, &weights);
+    println!("Optimal k: {}", k);
+    k
 }
 
 mod index {
