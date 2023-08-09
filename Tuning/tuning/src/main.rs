@@ -57,7 +57,7 @@ fn get_weights() -> Vec<f32> {
 #[allow(dead_code)]
 fn get_optimal_k(positions: &[Position], weights: &[f32]) -> f32 {
     println!("Finding optimal k...");
-    let k = tuner::find_optimal_k(&positions, &weights);
+    let k = tuner::find_optimal_k(positions, weights);
     println!("Optimal k: {}", k);
     k
 }
