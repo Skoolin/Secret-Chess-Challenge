@@ -16,8 +16,8 @@ fn main() {
         if path.contains("book") {
             load_book_positions(path, &mut positions);
         } else {
-        load_positions(path, &mut positions);
-    }
+            load_positions(path, &mut positions);
+        }
     }
 
     let mut weights = get_weights();

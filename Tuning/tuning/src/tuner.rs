@@ -1,6 +1,7 @@
-use crate::types::*;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+
+use crate::types::*;
 
 const LEARNING_RATE: f32 = 0.1;
 const BATCH_SIZE: usize = 10000;
@@ -28,10 +29,9 @@ pub fn tune(positions: &mut [Position], weights: &mut [f32], epochs: usize, k: f
     let now = std::time::Instant::now();
 
     let mut lr = LEARNING_RATE;
-
     let mut rng = thread_rng();
-    for epoch in 1..epochs {
 
+    for epoch in 1..epochs {
         if epoch % 100 == 0 {
             lr /= 10f32;
         }
@@ -40,7 +40,6 @@ pub fn tune(positions: &mut [Position], weights: &mut [f32], epochs: usize, k: f
 
         let mse = mean_squared_error(positions, weights, k);
         println!("#{:<3} MSE: {:.8}", epoch, mse);
-
 
         for batch in positions.chunks(BATCH_SIZE) {
             let gradient = compute_gradient(batch, weights, k);
