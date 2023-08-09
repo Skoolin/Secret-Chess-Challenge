@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 chess = { path = "../chess" }
+rand = "0.8.5"
