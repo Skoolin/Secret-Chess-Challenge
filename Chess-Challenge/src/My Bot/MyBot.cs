@@ -181,7 +181,7 @@ public class MyBot : IChessBot
           // 1. TT move
           move == tableMove ? 0
           // 2. Queen promotion, don't bother with underpromotions
-          : move.IsPromotion && move.PromotionPieceType is PieceType.Queen ? 1
+          : move.PromotionPieceType is PieceType.Queen ? 1
           // 3. MVV-LVA for captures
           : move.IsCapture ? 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType
           // 4. Killer heuristic for quiet moves
