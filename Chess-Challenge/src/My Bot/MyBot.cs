@@ -105,23 +105,171 @@ public class MyBot : IChessBot
     /// There are 86 tokens in total: 64 decimal literals and 22 tokens to declare and unpack the table.
     /// </summary>
     private readonly byte[] pieceSquareTables = new[] {
-          533633171124025748709646864m,  3016762064087496223854506256m,  3945226575538272208856562704m,  3946430778775224576385300752m,
-         4255911084676820992275009296m,  6111612199338538186227855376m,  5180739299284134186378215440m,  3945212351873611197867044368m,
-         4245030733935754572036518948m,  6111616940449853658337393451m,  5804549818944205519967310108m,  6116447902984889960854080035m,
-         6120060531719816126932142110m,  7350756423709970175496572713m,  6423515079327201742935573527m,  5797286745075916844593790990m,
-         5792451097564692430738242063m,  6107980699662968159791501073m,  6418674672628912767852694037m,  6118861069363635909582475286m,
-         6427137153220688228215968797m,  7972134924257571508285824283m,  7659023118388215430106862101m,  5799695225979419569800367116m,
-         4559346743179704281170723085m,  6421092561014132857595643411m,  6422310931854381760411092753m,  6736617477854170488478322196m,
-         6739035347939862358445279765m,  7044893561711786869562298642m,  6739035310831330627236284179m,  5186774539639109229717505803m,
-         3935541020257423147191975947m,  4874876419207379348953449488m,  6421097302042123026337318415m,  6427137227364288890384827922m,
-         6732985959509474728395884819m,  6424709893954489462016395025m,  5497459012459803759472232210m,  4254683251088647046556107019m,
-         3936740482824715111628357131m,  4861573475931645237713977615m,  5800904170817172415177311503m,  6417461061403846407021675790m,
-         6418665283231384270824752913m,  6110384439753231859933136401m,  5490205457181550945860601879m,  4560536742565587721502015502m,
-         3315352592808387497276554505m,  4243807604185686246041597968m,  5171058485680933820519170316m,  5793655301301257410055848459m,
-         5793645875015321621826781965m,  5172257948176158304037062421m,  4860355068197069264520167448m,  3931904723917235458543271692m,
-         1765504933017786962740915728m,  3004663397907760433330667280m,  3624847010756598329743128336m,  4238976678685424287341624336m,
-         3320188314820977155799138320m,  4241380326259664662758309136m,  3626056010002903460997054224m,  2383256618496987179765743120m,
+12966254764254301516153172300m, 14510052961560982499911946825m, 16990749909760457755565053280m, 17295403938744138873223861640m,
+18229894207707195796310024003m, 19764016313451491653552849561m, 19148668275190189959039631718m, 17291781901302500752033398627m,
+16371794075443846860248666143m, 17612166115307142820777057577m, 18235971875051130507113882653m, 20107365432196063278080943910m,
+19793044700361576634852270361m, 21947355251440122796995342365m, 22559067012390056817827667749m, 21311441288480456117524585485m,
+17301458067760031299652049944m, 18538189199817528145652836115m, 20719081934100537891728288026m, 20708206324161704518538850077m,
+21330784175952375912631597340m, 22563883863595139278928965920m, 22863711596850198340501139226m, 21307814548342647694295129615m,
+16059886565682983654836231189m, 19469062118313025811827941401m, 20399930258746892678164734741m, 22573574178493680977128746267m,
+21959444584423030224201410073m, 23503242818962091877196786198m, 22567510604373845294450827542m, 21322321676548493088447619597m,
+16374202501147004960275061008m, 18856136690729957774126570264m, 19783382831482907887455527445m, 21953404659388236013412573979m,
+22567534271832733236240737559m, 23801838107157153343789425688m, 22259229779341860834650447894m, 21636651834668649425122384396m,
+17609724651898809106529671443m, 19148687294344290851317046806m, 20719081952396390508624437785m, 22565106975389314065820180501m,
+22566315919727167412772168726m, 23187689586728205557677842452m, 21634215149047561236653499417m, 20703342212388167724831037454m,
+16676424492654776347401017104m, 18538184385283434122066548505m, 19776124480052874855059642899m, 22256840317458189966343364626m,
+22254417761826325403566890767m, 22862507375161124101841707292m, 21313868659350356128438902555m, 20072306509344147827297573645m,
+16059886417644580886665973093m, 16990768835852465175535441502m, 18232335560713680201946320988m, 19770089332607408588147283541m,
+18229908356635434616555656832m, 21629403020657349092680948555m, 19157159145342751865451599751m, 17603661133229535044170499968m,
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
+
+    // these 4 can be in the psqt without additional token cost!!
+    byte[] AdjacentBitboard = { 0b00000010, 0b00000101, 0b00001010, 0b00010100, 0b00101000, 0b01010000, 0b10100000, 0b01000000 }; // #DEBUG
+    int[] mgQueensidePawns = { 165, 173,  75, 106, 102, 119, 159, 130,
+28, 44, 37, 64, 49,  7,  5, 11,
+23, 18, 25, 33, 27, 23, 32, 11,
+20, 21, 15, 21, 26, 27, 22, 12,
+15, 24, 20, 25, 20, 18, 19, 10,
+22, 30, 22, 16, 19, 18, 17,  9,
+22, 36, 28, 26,  9, 18, 16, 11,
+  9,   4,   6,   6, 150,  98,  79,  79,     };
+    int[] mgKingsidePawns = {  66,  72, 162,  73, 114, 104,  71,  87,
+44, 43, 41, 43, 49, 29, 24,  7,
+19, 26, 33, 31, 32, 41, 19, 16,
+18, 22, 21, 24, 27, 27, 20, 18,
+15, 19, 19, 23, 23, 24, 21, 17,
+15, 18, 19, 19, 22, 18, 28, 24,
+15, 19, 16, 13, 19, 28, 33, 23,
+ 71, 118, 158, 126, 111, 124,  91, 120,    };
+    int[] egQueensidePawns = {   68,  93, 142,  71, 128,  69, 168, 141,
+66, 63, 55, 50, 47, 63, 65, 64,
+55, 56, 47, 43, 35, 36, 40, 43,
+36, 35, 28, 28, 22, 20, 24, 27,
+28, 26, 22, 22, 21, 20, 23, 23,
+24, 21, 20, 24, 21, 21, 23, 22,
+25, 21, 19, 19, 25, 24, 26, 26,
+  9,   1,   1,   2, 161, 105, 108,  90,  };
+    int[] egKingsidePawns = { 132,  90, 172,  88, 116,  83,  86, 156,
+58, 56, 49, 44, 42, 49, 57, 60,
+44, 42, 38, 35, 32, 29, 41, 45,
+29, 26, 23, 21, 18, 20, 25, 26,
+24, 23, 20, 19, 18, 17, 19, 20,
+23, 23, 19, 22, 21, 20, 19, 18,
+25, 25, 24, 25, 25, 21, 18, 17,
+157, 127,  93, 145,  90,  69, 103,  90,    };
+    int[] MgPassedRankBonus = { 4, 0, 0, 0, 2, 0, 15, 3, }, // #DEBUG
+    EgPassedRankBonus = { 3, 1, 3, 7, 13, 26, 29, -2, }, // #DEBUG
+    MGConnectedRankBonus = { 2, 1, 4, 4, 5, 9, 57, 0, }, // #DEBUG
+    EGConnectedRankBonus = { 4, -1, 2, 2, 4, 4, -12, 1 },
+    MgKingSurrounded = { 87, 91, 96, 98, 95, 95, 95, 95 },
+    EgKingSurrounded = { 51, 53, 52, 49, 49, 49, 49, 49 };
+    int MgBishopPair = 9, MgHalfRook = 4, MgFullRook = 6, MgOpenKing = 6, EgBishopPair = 9, EgHalfRook = 1, EgFullRook = 1, EgOpenKing = 2;
+    // p12 stat significant
+
+    int MgIsolatedBonus = 0;
+    int EgIsolatedBonus = 0;
+
+    (int middleGame, int endGame) EvaluatePawn(int square, ulong enemyPawnBoard, ulong ourPawnBoard, bool white)
+    {
+        int middleGame = 0, endGame = 0;
+
+        int file = square & 0b111;
+        int rank = square >> 3;
+
+        int rankFromPlayerPerspective = white ? rank : 7 - rank;
+
+        // helpful masks
+        ulong fileMask = 0x0101010101010101UL << file;
+        ulong adjacentMask = 0x0101010101010101UL * AdjacentBitboard[file];
+
+        /******************
+         * passed pawn
+         ******************/
+        ulong forwardMask = white
+            ? 0xFFFFFFFFFFFFFFFFUL << (8 * (rankFromPlayerPerspective + 1))
+            : 0xFFFFFFFFFFFFFFFFUL >> (8 * (rankFromPlayerPerspective + 1));
+        ulong passedMask =
+            forwardMask // all squares forward of pawn
+            & (fileMask | adjacentMask); // that on the same or neighboring files
+
+        if ((enemyPawnBoard & passedMask) == 0) // passedPawn!
+        {
+            middleGame += MgPassedRankBonus[rankFromPlayerPerspective];
+            endGame += EgPassedRankBonus[rankFromPlayerPerspective];
+        }
+
+        /******************
+         * isolated pawn
+         ******************/
+        if ((ourPawnBoard & adjacentMask) == 0) // isolated pawn!
+        {
+            middleGame -= MgIsolatedBonus;
+            endGame -= EgIsolatedBonus;
+        }
+
+        /******************
+         * connected pawns
+         ******************/
+        ulong rankMask
+            = (0b11111111UL << (rank * 8)) // phalanx pawns
+            | (0b11111111UL << ((white ? -8 : 8) + rank * 8)); // supporting pawns
+        ulong connectedMask = rankMask & adjacentMask;
+
+        if ((ourPawnBoard & connectedMask) != 0) // connected!
+        {
+            middleGame += MGConnectedRankBonus[rankFromPlayerPerspective];
+            endGame += EGConnectedRankBonus[rankFromPlayerPerspective];
+        }
+
+        return (middleGame, endGame);
+    }
+
+    (int middleGame, int endGame) EvaluatePiece(int piece, int square, ulong enemyPawnBoard, ulong ourPawnBoard, bool white)
+    {
+        int middleGame = 0, endGame = 0;
+
+        int file = square & 0b111;
+        // int rank = square >> 3;
+
+        // int rankFromPlayerPerspective = white ? rank : 7 - rank;
+
+        // helpful masks
+        ulong fileMask = 0x0101010101010101UL << file;
+
+        /******************
+         * rook on open file
+         ******************/
+        if (piece == 3) // rook
+        {
+            if ((fileMask & ourPawnBoard) == 0) // semi open file
+            {
+                middleGame += MgHalfRook;
+                endGame += EgHalfRook;
+            }
+            if ((fileMask & (ourPawnBoard | enemyPawnBoard)) == 0) // open file
+            {
+                middleGame += MgFullRook;
+                endGame += EgFullRook;
+            }
+        }
+        /******************
+         * king on open file
+         ******************/
+        if (piece == 5) // king
+        {
+            // int surrounded = System.Numerics.BitOperations.PopCount(BitboardHelper.GetKingAttacks(new(square)) & ourPawnBoard);
+            // middleGame += MgKingSurrounded[surrounded];
+            // endGame += EgKingSurrounded[surrounded];
+            if ((fileMask & ourPawnBoard) == 0)
+            {
+                // open king 
+                middleGame -= MgOpenKing;
+                endGame -= EgOpenKing;
+            }
+        }
+
+        return (middleGame, endGame);
+    }
 
     /// <summary>
     /// Static evaluation using Piece Square Tables and Tapered Evaluation
@@ -133,26 +281,60 @@ public class MyBot : IChessBot
     private int EvaluateStatically()
     {
         int mgScore = 0, egScore = 0, phase = 0;
-
         // Colors are represented by the xor value of the PSQT flip
         foreach (var xor in new[] { 56, 0 })
         {
+            ulong enemyPawnBoard = board.GetPieceBitboard(PieceType.Pawn, xor is 0);
+            ulong ourPawnBoard = board.GetPieceBitboard(PieceType.Pawn, xor is 56);
+            ulong ourKing = board.GetPieceBitboard(PieceType.King, xor is 56);
+            int bishops = 0;
             for (var piece = 0; piece < 6; piece++)
             {
                 ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
                 while (bitboard != 0)
                 {
-                    int index = piece +                                          // piece index
-                        16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
-                        ^ xor);                                                  // flip board for white pieces
+                    int square = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard);
+                    if (piece == 0)
+                    {
+                        if ((ourKing & 506381209866536711) > 0)
+                        {
+                            // Queenside pawns
+                            mgScore += mgQueensidePawns[square ^ xor];
+                            egScore += egQueensidePawns[square ^ xor];
+                            continue;
+                        }
+                        if ((ourKing & 16204198715729174752) > 0)
+                        {
+                            // Kingside pawns
+                            mgScore += mgKingsidePawns[square ^ xor];
+                            egScore += egKingsidePawns[square ^ xor];
+                            continue;
+                        }
+                    }
+                    if (piece == 2)
+                    {
+                        bishops++;
+                    }
+                    int index = piece + // piece index
+                        16 * (square ^ xor);    // row of square
 
-                    mgScore += pieceSquareTables[index];
-                    egScore += pieceSquareTables[index + 6];
+                    var (middleGame, endGame) = piece == 0
+                        ? (0, 0)
+                        : EvaluatePiece(piece, square, enemyPawnBoard, ourPawnBoard, xor is 56);
+                    // var (middleGame, endGame) = piece == 0 ? EvaluatePawn(square, enemyPawnBoard, ourPawnBoard, xor is 56) : (0, 0);
+
+                    mgScore += pieceSquareTables[index] + middleGame;
+                    egScore += pieceSquareTables[index + 6] + endGame;
+
                     // Save 8 tokens by packing a lookup table into a single int
                     phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
                 }
             }
-
+            if (bishops == 2)
+            {
+                mgScore += MgBishopPair;
+                egScore += EgBishopPair;
+            }
             mgScore = -mgScore;
             egScore = -egScore;
         }
