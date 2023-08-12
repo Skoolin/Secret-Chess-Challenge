@@ -20,6 +20,7 @@ public class MyBot : IChessBot
     private Board board;
 
     private Move bestMove;
+    private int TimerCalls;
 
     // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
     private const ulong TABLE_SIZE = 1 << 22;
@@ -312,7 +313,9 @@ public class MyBot : IChessBot
             board.UndoMove(m);
 
             // Terminate search if time is up
-            if (HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining) return 0;
+            if ((TimerCalls & 0xFF) == 0 && // only poll timer every 256 moves
+                HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining) return 0;
+            TimerCalls++; // only do this if we didn't terminate, so TimerCalls & 0xFF is 0 in the calling function
 
             if (score > alpha)
             {
