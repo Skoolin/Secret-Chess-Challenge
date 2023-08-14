@@ -6,10 +6,10 @@ using static ChessChallenge.Application.UCI;          // #DEBUG
 
 public class MyBot : IChessBot
 {
-    [Tunable] public int TempoBonus { get; set; } = 40; // #DEBUG
-    [Tunable] public int RFPMargin { get; set; } = 384; // #DEBUG
-    [Tunable] public int FPMargin { get; set; } = 384; // #DEBUG
-    [Tunable] public int FPFixedMargin { get; set; } = 240; // #DEBUG
+    [Tunable] public int TempoBonus { get; set; } = 53; // #DEBUG
+    [Tunable] public int RFPMargin { get; set; } = 273; // #DEBUG
+    [Tunable] public int FPMargin { get; set; } = 468; // #DEBUG
+    [Tunable] public int FPFixedMargin { get; set; } = 292; // #DEBUG
     [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
     [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
 
