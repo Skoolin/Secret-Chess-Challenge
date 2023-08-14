@@ -238,7 +238,7 @@ public class MyBot : IChessBot
             if (!board.IsInCheck() && depth < 8 && beta <= eval - RFPMargin * depth)
                 return eval;
             // Early return without generating moves for draw positions
-            if (!root && board.IsRepeatedPosition() || board.FiftyMoveCounter >= 100)
+            if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
                 return 0;
         }
 
@@ -417,18 +417,13 @@ public class MyBot : IChessBot
 
         stats.Nodes = 0;  // #DEBUG
 
-        bestMove = default;
-
         for (int depth = 0; timer.MillisecondsElapsedThisTurn * SoftTimeLimit < timer.MillisecondsRemaining && ++depth < 64;)
         {
             var score = // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
 
-            // Search was terminated at root as it was a repeated position or a 50 move draw
-            if (bestMove == default) break; // #DEBUG
-            SendReport(depth, score);       // #DEBUG
-
-            // stats.PrintStatistics(); // #DEBUG
+            SendReport(depth, score); // #DEBUG
+            //stats.PrintStatistics(); // #DEBUG
         }
 
         return bestMove;
