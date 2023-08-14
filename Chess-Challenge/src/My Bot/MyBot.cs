@@ -419,30 +419,16 @@ public class MyBot : IChessBot
 
         bestMove = default;
 
-        int alpha = -100_000_000,
-            beta = 100_000_000;
-
-        for (int depth = 1; timer.MillisecondsElapsedThisTurn * SoftTimeLimit < timer.MillisecondsRemaining && depth < 64;)
+        for (int depth = 0; timer.MillisecondsElapsedThisTurn * SoftTimeLimit < timer.MillisecondsRemaining && ++depth < 64;)
         {
-            var score = AlphaBeta(depth, alpha, beta, true, true);
-
-            if (alpha >= score || score >= beta)
-            {
-                alpha = -100_000_000;
-                beta = 100_000_000;
-                continue;
-            }
-
-            alpha = score - 300;
-            beta = score + 300;
+            var score = // #DEBUG
+            AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
 
             // Search was terminated at root as it was a repeated position or a 50 move draw
             if (bestMove == default) break; // #DEBUG
             SendReport(depth, score);       // #DEBUG
 
             // stats.PrintStatistics(); // #DEBUG
-
-            depth++;
         }
 
         return bestMove;
