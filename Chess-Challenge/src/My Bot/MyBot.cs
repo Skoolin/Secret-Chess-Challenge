@@ -60,7 +60,7 @@ public class MyBot : IChessBot
     /// Indexed by:
     /// <code>historyTable[pieceType, targetSquare]</code>
     /// </summary>
-    private readonly int[,] historyTable = new int[7, 64];
+    private readonly int[,,] historyTable = new int[2, 7, 64];
 
     /// <summary>
     /// Negative Plausibility: Extension of History Heuristic.
@@ -81,6 +81,7 @@ public class MyBot : IChessBot
     /// </summary>
     private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
 
+    private int IsWhiteToMoveInt => Convert.ToInt32(board.IsWhiteToMove);
 
     /// <summary>
     /// Tightly packed Piece Square Tables:
@@ -188,7 +189,7 @@ public class MyBot : IChessBot
           // 4. Killer heuristic for quiet moves
           : killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move ? 10000
           // 5. History heuristic for quiet moves
-          : 100_000_000 - historyTable[(int)move.MovePieceType, move.TargetSquare.Index];
+          : 100_000_000 - historyTable[IsWhiteToMoveInt, (int)move.MovePieceType, move.TargetSquare.Index];
 
     /// <summary>
     /// alpha-beta-search implementation combined with quiescence-search for compactness.
@@ -280,6 +281,12 @@ public class MyBot : IChessBot
 
         int latestAlpha = 0;  // #DEBUG
 
+        void updateHistory(Move m, int bonus)
+        {
+            ref int hist = ref historyTable[IsWhiteToMoveInt, (int)m.MovePieceType, m.TargetSquare.Index];
+            hist += 32 * bonus * depth - hist * depth * depth / 512;
+        }
+
         foreach (Move m in moves)
         {
             moveCount++;
@@ -336,8 +343,8 @@ public class MyBot : IChessBot
                     if (!m.IsCapture)
                     {
                         while (badQuietCount-- > 0)
-                            historyTable[(int)badQuiets[badQuietCount].MovePieceType, badQuiets[badQuietCount].TargetSquare.Index] -= depth * depth;
-                        historyTable[(int)m.MovePieceType, m.TargetSquare.Index] += depth * depth;
+                            updateHistory(badQuiets[badQuietCount], -depth);
+                        updateHistory(m, depth);
                         killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
                     }
                     break;
