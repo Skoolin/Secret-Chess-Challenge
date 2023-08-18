@@ -247,11 +247,6 @@ public class MyBot : IChessBot
         ulong zobrist = board.ZobristKey,
             TTidx = zobrist % TABLE_SIZE;
 
-        // internal iterative deepening
-        if (depth >= 4 && transpositionTable[TTidx].Item1 != zobrist)
-            // internal iterative reductions (--depth)
-            AlphaBeta(--depth - 2, alpha, beta, nullMoveAllowed, root);
-
         var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
 
         stats.TraceTTProbe(inQSearch, zobrist, TTzobrist); // #DEBUG
@@ -275,7 +270,12 @@ public class MyBot : IChessBot
             if (score >= beta) return beta;
         }
 
-        var pvNode = alpha != beta - 1;
+        bool pvNode = alpha != beta - 1;
+
+        // Internal iterative reductions
+        if (pvNode && depth >= 6 && TTm == default)
+            depth -= 2;
+
         var moves = board.GetLegalMoves(inQSearch);
         Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
 
