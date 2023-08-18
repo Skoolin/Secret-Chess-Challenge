@@ -270,7 +270,7 @@ public class MyBot : IChessBot
 
         int latestAlpha = 0;  // #DEBUG
 
-        void updateHistory(Move m, int bonus)
+        void UpdateHistory(Move m, int bonus)
         {
             ref int hist = ref historyTable[IsWhiteToMoveInt, (int)m.MovePieceType, m.TargetSquare.Index];
             hist += 32 * bonus * depth - hist * depth * depth / 512;
@@ -332,8 +332,8 @@ public class MyBot : IChessBot
                     if (!m.IsCapture)
                     {
                         while (badQuietCount-- > 0)
-                            updateHistory(badQuiets[badQuietCount], -depth);
-                        updateHistory(m, depth);
+                            UpdateHistory(badQuiets[badQuietCount], -depth);
+                        UpdateHistory(m, depth);
                         killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
                     }
                     break;
