@@ -20,22 +20,16 @@ public class MyBot : IChessBot
     private Board board;
 
     private Move bestMove;
-    private int TimerCalls;
+    private int timerCalls;
 
     // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
     private const ulong TABLE_SIZE = 1 << 22;
 
     /// <summary>
-    /// Transposition Table for caching previously computed positions during search.
-    /// https://www.chessprogramming.org/Transposition_Table
+    /// <see href="https://www.chessprogramming.org/Transposition_Table">Transposition Table</see>
+    /// for caching previously computed positions during search.
     /// 
-    /// To insert an entry:
-    /// <code>TranspositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, evaluation, nodeType, move);</code>
-    /// 
-    /// To retrieve an entry:
-    /// <code>var (zobrist, depth, evaluation, nodeType, move) = TranspositionTable[zobrist % TABLE_SIZE];</code>
-    /// 
-    /// Node types:
+    /// <para>Node types:</para>
     /// <list type="bullet">
     ///     <item>1: PV node, an exact evaluation</item>
     ///     <item>2: Beta cutoff node, a lower bound</item>
@@ -52,58 +46,49 @@ public class MyBot : IChessBot
     )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
 
     /// <summary>
-    /// History Heuristic for ordering quiet moves.
-    /// https://www.chessprogramming.org/History_Heuristic
-    /// 
+    /// <see href="https://www.chessprogramming.org/History_Heuristic">History Heuristic</see> for ordering quiet moves.
+    ///
     /// Moves that often contribute to a beta cutoff have a higher score.
     /// 
-    /// Indexed by:
-    /// <code>historyTable[pieceType, targetSquare]</code>
+    /// <para>Indexed by [<see cref="Move.MovePieceType"/>][<see cref="Move.TargetSquare"/>].</para>
     /// </summary>
     private readonly int[,,] historyTable = new int[2, 7, 64];
 
     /// <summary>
-    /// Negative Plausibility: Extension of History Heuristic.
-    /// http://www.aifactory.co.uk/newsletter/2007_01_neg_plausibility.htm
+    /// <see href="http://www.aifactory.co.uk/newsletter/2007_01_neg_plausibility.htm">Negative Plausibility: Extension of History Heuristic</see>.
     /// 
-    /// Stores quiets that didn't raise alpha and that "delayed" a beta cutoff from occurring.
-    /// These moves will get a penalty in the historyTable when a move with lower score causes a beta cutoff to occur.
+    /// Stores quiet moves that didn't raise alpha and that "delayed" a beta cutoff from occurring.
+    /// These moves receive a penalty in the <see cref="historyTable"/> when a move with a lower score causes a beta cutoff to occur.
     /// </summary>
     private readonly Move[] badQuiets = new Move[512];
 
     /// <summary>
-    /// Killer Move Heuristic for ordering quiet moves.
-    /// https://www.chessprogramming.org/Killer_Move
-    /// 
+    /// <see href="https://www.chessprogramming.org/Killer_Move">Killer Move Heuristic</see> for ordering quiet moves.
     /// Used to retrieve moves that caused a beta cutoff in sibling nodes.
     /// 
-    /// Indexed by [board.PlyCount]
+    /// <para>Indexed by [<see cref="Board.PlyCount"/>].</para>
     /// </summary>
     private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
 
-    private int IsWhiteToMoveInt => Convert.ToInt32(board.IsWhiteToMove);
-
     /// <summary>
-    /// Tightly packed Piece Square Tables:
-    /// https://www.chessprogramming.org/Piece-Square_Tables
+    /// Tightly packed <see href="https://www.chessprogramming.org/Piece-Square_Tables">Piece-Square Tables</see>.
     /// 
     /// Each decimal represents the piece values for one square.
-    /// Because we use Tapered Eval, we need 2 values per piece per square.
-    /// Each value is a single unsigned byte.
+    /// Because Tapered Evaluation is used, there are 2 values per piece per square. Each value is a single unsigned byte.
     /// 
-    /// The values are ordered as follows:
+    /// <para>The values are ordered as follows:</para>
     /// <list type="table">
     ///     <item>
-    ///         <term>middlegame</term>
-    ///         <description>pawn knight bishop rook queen king</description>
+    ///         <term>Middlegame</term>
+    ///         <description>Pawn Knight Bishop Rook Queen King</description>
     ///     </item>
     ///     <item>
-    ///         <term>endgame</term>
-    ///         <description>pawn knight bishop rook queen king</description>
+    ///         <term>Endgame</term>
+    ///         <description>Pawn Knight Bishop Rook Queen King</description>
     ///     </item>
     /// </list>
     /// 
-    /// To save tokens during unpacking, after every 12 byte square table there are 4 empty byte values that can't be used.
+    /// To save tokens during unpacking, after every 12 byte square table, there are 4 empty byte values that can't be used.
     /// There are 86 tokens in total: 64 decimal literals and 22 tokens to declare and unpack the table.
     /// </summary>
     private readonly byte[] pieceSquareTables = new[] {
@@ -126,12 +111,16 @@ public class MyBot : IChessBot
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
     /// <summary>
-    /// Static evaluation using Piece Square Tables and Tapered Evaluation
-    /// https://www.chessprogramming.org/Tapered_Eval
-    /// 
-    /// This will be manually inlined into the AlphaBeta() function to save tokens
+    /// Gets an integer value representing the current player's turn (0 or 1).
     /// </summary>
-    /// <returns>static evaluation of board position from the perspective of current player</returns>
+    private int IsWhiteToMoveInt => Convert.ToInt32(board.IsWhiteToMove);
+
+    /// <summary>
+    /// Performs static evaluation using <see href="https://www.chessprogramming.org/Piece-Square_Tables">Piece Square Tables</see>
+    /// and <see href="https://www.chessprogramming.org/Tapered_Eval">Tapered Evaluation</see>.
+    /// </summary>
+    /// <returns>The static evaluation of the board position from the perspective of the current player.</returns>
+    /// <remarks>This method will be manually inlined into the <see cref="AlphaBeta"/> method to save tokens.</remarks>
     private int EvaluateStatically()
     {
         int mgScore = 0, egScore = 0, phase = 0;
@@ -164,8 +153,7 @@ public class MyBot : IChessBot
     }
 
     /// <summary>
-    /// Evaluates move for move ordering.
-    /// https://www.chessprogramming.org/Move_Ordering
+    /// Evaluates a move for <see href="https://www.chessprogramming.org/Move_Ordering">Move Ordering</see>.
     /// 
     /// Move ordering features are:
     /// <list type="number">
@@ -176,9 +164,9 @@ public class MyBot : IChessBot
     ///     <item>History Heuristic with Negative Plausibility</item>
     /// </list>
     /// </summary>
-    /// <param name="move">the move to evaluate</param>
-    /// <param name="tableMove">the PV move retrieved from the transposition table (or Move.NullMove)</param>
-    /// <returns>move ranking for move ordering</returns>
+    /// <param name="move">The move to evaluate.</param>
+    /// <param name="tableMove">The PV move retrieved from the transposition table (or <see cref="Move.NullMove"/>).</param>
+    /// <returns>The move's ranking for move ordering.</returns>
     private int GetMoveScore(Move move, Move tableMove) =>
           // 1. TT move
           move == tableMove ? 0
@@ -192,31 +180,32 @@ public class MyBot : IChessBot
           : 100_000_000 - historyTable[IsWhiteToMoveInt, (int)move.MovePieceType, move.TargetSquare.Index];
 
     /// <summary>
-    /// alpha-beta-search implementation combined with quiescence-search for compactness.
-    /// https://www.chessprogramming.org/Alpha-Beta
-    /// https://www.chessprogramming.org/Quiescence_Search
+    /// Performs an <see href="https://www.chessprogramming.org/Alpha-Beta">Alpha-Beta</see> search with
+    /// integrated <see href="https://www.chessprogramming.org/Quiescence_Search">Quiescence Search</see> for compactness.
     /// 
-    /// We implemented the following search enhancements:
+    /// <para>This implementation incorporates the following search enhancements:</para>
     /// <list type="bullet">
-    ///     <item><term>Check Extensions</term><description>https://www.chessprogramming.org/Check_Extensions</description></item>
-    ///     <item><term>Reverse Futility Pruning</term><description>https://www.chessprogramming.org/Reverse_Futility_Pruning</description></item>
-    ///     <item><term>Internal Iterative Deepening</term><description>https://www.chessprogramming.org/Internal_Iterative_Deepening</description></item>
-    ///     <item><term>Internal Iterative Reductions</term><description></description></item>
-    ///     <item><term>Adaptive Null Move Pruning</term><description>https://www.chessprogramming.org/Null_Move_Pruning</description></item>
-    ///     <item><term>Futility Pruning</term><description>https://www.chessprogramming.org/Futility_Pruning</description></item>
-    ///     <item><term>Adaptive Late Move Reductions</term><description>https://www.chessprogramming.org/Late_Move_Reductions</description></item>
-    ///     <item><term>Principal Variation Search</term><description>https://www.chessprogramming.org/Principal_Variation_Search</description></item>
+    ///   <item><description><see href="https://www.chessprogramming.org/Check_Extensions">Check Extensions</see></description></item>
+    ///   <item><description><see href="https://www.chessprogramming.org/Reverse_Futility_Pruning">Reverse Futility Pruning</see></description></item>
+    ///   <item><description>Internal Iterative Reductions (TODO: details need to be added)</description></item>
+    ///   <item><description><see href="https://www.chessprogramming.org/Null_Move_Pruning">Adaptive Null Move Pruning</see></description></item>
+    ///   <item><description><see href="https://www.chessprogramming.org/Futility_Pruning">Futility Pruning</see></description></item>
+    ///   <item><description><see href="https://www.chessprogramming.org/Late_Move_Reductions">Adaptive Late Move Reductions</see></description></item>
+    ///   <item><description><see href="https://www.chessprogramming.org/Principal_Variation_Search">Principal Variation Search</see></description></item>
     /// </list>
-    /// 
-    /// This method is declared in the 'Think()' method to have access to the 'board' and 'timer' variables in the 'Think()' method's scope.
-    /// 
     /// </summary>
-    /// <param name="depth">remaining search depth</param>
-    /// <param name="alpha">lower score bound</param>
-    /// <param name="beta">upper score bound</param>
-    /// <param name="nullMoveAllowed"></param>
-    /// <param name="root"></param>
-    /// <returns>evaluation of the position searched up to <paramref name="depth"/></returns>
+    /// 
+    /// <param name="depth">The remaining search depth.</param>
+    /// <param name="alpha">The lower score bound.</param>
+    /// <param name="beta">The upper score bound.</param>
+    /// <param name="nullMoveAllowed">Specifies whether null move pruning is allowed.</param>
+    /// <param name="root">Specifies whether the method is being called at the root of the search tree.</param>
+    /// <returns>The evaluation of the position searched up to the specified <paramref name="depth"/>.</returns>
+    /// 
+    /// <remarks>
+    /// This method will be manually inlined in the <see cref="Think(Board, Timer)"/> method to have access to the
+    /// <see cref="board"/> and <see cref="timer"/> variables in the <see cref="Think(Board, Timer)"/> method's scope.
+    /// </remarks>
     private int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
     {
         stats.Nodes++; // #DEBUG
@@ -320,9 +309,9 @@ public class MyBot : IChessBot
             board.UndoMove(m);
 
             // Terminate search if time is up
-            if ((TimerCalls & 0xFF) == 0 && // only poll timer every 256 moves
+            if ((timerCalls & 0xFF) == 0 && // only poll timer every 256 moves
                 HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining) return 0;
-            TimerCalls++; // only do this if we didn't terminate, so TimerCalls & 0xFF is 0 in the calling function
+            timerCalls++; // only do this if we didn't terminate, so TimerCalls & 0xFF is 0 in the calling function
 
             if (score > alpha)
             {
@@ -406,17 +395,15 @@ public class MyBot : IChessBot
     }
 
     /// <summary>
-    /// The main method initiating the search.
-    /// Uses Aspiration Window Search to bound the Alpha-Beta Search.
-    /// https://www.chessprogramming.org/Aspiration_Windows
+    /// <para>The main method initiating the search.</para>
     /// 
-    /// Uses Iterative Deepening and the "Optimal Time Management" Strategy for Time Management
-    /// https://www.chessprogramming.org/Iterative_Deepening
+    /// Uses <see href="https://www.chessprogramming.org/Iterative_Deepening">Iterative Deepening</see>
+    /// and the "Optimal Time Management" Strategy for <see href="https://www.chessprogramming.org/Time_Management">Time Management</see>.
     /// 
     /// </summary>
-    /// <param name="_board"></param>
-    /// <param name="_timer"></param>
-    /// <returns>the best move found in the current position</returns>
+    /// <param name="_board">The current game board.</param>
+    /// <param name="_timer">The timer for managing search time.</param>
+    /// <returns>The best move found in the current position.</returns>
     public Move Think(Board _board, Timer _timer)
     {
         timer = _timer;
