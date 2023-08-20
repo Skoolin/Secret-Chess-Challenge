@@ -68,7 +68,7 @@ public class MyBot : IChessBot
     /// 
     /// <para>Indexed by [<see cref="Board.PlyCount"/>].</para>
     /// </summary>
-    private readonly (Move, Move)[] killerMoves = new (Move, Move)[1024]; // MAX_GAME_LENGTH = 1024
+    private readonly Move[] killerMoves = new Move[1024]; // MAX_GAME_LENGTH = 1024
 
     /// <summary>
     /// Tightly packed <see href="https://www.chessprogramming.org/Piece-Square_Tables">Piece-Square Tables</see>.
@@ -175,7 +175,7 @@ public class MyBot : IChessBot
           // 3. MVV-LVA for captures
           : move.IsCapture ? 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType
           // 4. Killer heuristic for quiet moves
-          : killerMoves[board.PlyCount].Item1 == move || killerMoves[board.PlyCount].Item2 == move ? 10000
+          : killerMoves[board.PlyCount] == move ? 10000
           // 5. History heuristic for quiet moves
           : 100_000_000 - historyTable[IsWhiteToMoveInt, (int)move.MovePieceType, move.TargetSquare.Index];
 
@@ -334,7 +334,7 @@ public class MyBot : IChessBot
                         while (badQuietCount-- > 0)
                             UpdateHistory(badQuiets[badQuietCount], -depth);
                         UpdateHistory(m, depth);
-                        killerMoves[board.PlyCount] = (m, killerMoves[board.PlyCount].Item1);
+                        killerMoves[board.PlyCount] = m;
                     }
                     break;
                 }
