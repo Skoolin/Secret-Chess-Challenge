@@ -210,12 +210,19 @@ public class MyBot : IChessBot
     {
         stats.Nodes++; // #DEBUG
 
+        bool inCheck = board.IsInCheck();
+
         // Check extension in case of forcing sequences
-        if (depth >= 0 && board.IsInCheck())
+        if (depth >= 0 && inCheck)
             depth += 1;
 
         bool inQSearch = depth <= 0;
-        int staticScore = EvaluateStatically();
+
+        int staticScore = EvaluateStatically(),
+            badQuietCount = 0,
+            moveCount = 0,
+            nodeFlag = 3,
+            score;
 
         if (inQSearch)
         {
@@ -225,7 +232,7 @@ public class MyBot : IChessBot
         else
         {
             // reverse futility pruning
-            if (!board.IsInCheck() && depth < 8 && beta <= staticScore - RFPMargin * depth)
+            if (!inCheck && depth < 8 && beta <= staticScore - RFPMargin * depth)
                 return staticScore;
             // Early return without generating moves for draw positions
             if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
@@ -243,11 +250,6 @@ public class MyBot : IChessBot
             ttMove = default;
         else if (!root && ttDepth >= depth && (ttFlag is 1 || ttFlag is 2 && ttScore >= beta || ttFlag is 3 && ttScore <= alpha))
             return ttScore;
-
-        int badQuietCount = 0,
-            moveCount = 0,
-            nodeFlag = 3,
-            score;
 
         // Null Move Pruning: check if we beat beta even without moving
         if (nullMoveAllowed && depth >= 2 && staticScore >= beta && board.TrySkipTurn())
@@ -341,7 +343,7 @@ public class MyBot : IChessBot
         {
             // Checkmate or stalemate
             if (moveCount < 1)
-                return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
+                return inCheck ? -20_000_000 + board.PlyCount : 0;
 
             transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, alpha, nodeFlag, ttMove);
         }
