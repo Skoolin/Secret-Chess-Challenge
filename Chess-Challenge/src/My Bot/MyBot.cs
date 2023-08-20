@@ -215,18 +215,18 @@ public class MyBot : IChessBot
             depth += 1;
 
         bool inQSearch = depth <= 0;
-        int eval = EvaluateStatically();
+        int staticScore = EvaluateStatically();
 
         if (inQSearch)
         {
-            if (eval >= beta) return beta;
-            if (alpha < eval) alpha = eval;
+            if (staticScore >= beta) return beta;
+            if (alpha < staticScore) alpha = staticScore;
         }
         else
         {
             // reverse futility pruning
-            if (!board.IsInCheck() && depth < 8 && beta <= eval - RFPMargin * depth)
-                return eval;
+            if (!board.IsInCheck() && depth < 8 && beta <= staticScore - RFPMargin * depth)
+                return staticScore;
             // Early return without generating moves for draw positions
             if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
                 return 0;
@@ -234,25 +234,24 @@ public class MyBot : IChessBot
 
         // Transposition table lookup
         ulong zobrist = board.ZobristKey,
-            TTidx = zobrist % TABLE_SIZE;
+            ttIndex = zobrist % TABLE_SIZE;
+        var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[ttIndex];
 
-        var (TTzobrist, TTdepth, TTeval, TTtype, TTm) = transpositionTable[TTidx];
-
-        stats.TraceTTProbe(inQSearch, zobrist, TTzobrist); // #DEBUG
+        stats.TraceTTProbe(inQSearch, zobrist, ttZobrist); // #DEBUG
 
         // The TT entry is from a different position, so no best move is available
-        if (TTzobrist != zobrist)
-            TTm = default;
-        else if (!root && TTdepth >= depth && (TTtype is 1 || TTtype is 2 && TTeval >= beta || TTtype is 3 && TTeval <= alpha))
-            return TTeval;
+        if (ttZobrist != zobrist)
+            ttMove = default;
+        else if (!root && ttDepth >= depth && (ttFlag is 1 || ttFlag is 2 && ttScore >= beta || ttFlag is 3 && ttScore <= alpha))
+            return ttScore;
 
-        int TTnodeType = 3,
+        int badQuietCount = 0,
             moveCount = 0,
-            score,
-            badQuietCount = 0;
+            nodeFlag = 3,
+            score;
 
         // Null Move Pruning: check if we beat beta even without moving
-        if (nullMoveAllowed && depth >= 2 && eval >= beta && board.TrySkipTurn())
+        if (nullMoveAllowed && depth >= 2 && staticScore >= beta && board.TrySkipTurn())
         {
             score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false);
             board.UndoSkipTurn();
@@ -262,21 +261,15 @@ public class MyBot : IChessBot
         bool pvNode = alpha != beta - 1;
 
         // Internal iterative reductions
-        if (pvNode && depth >= 6 && TTm == default)
+        if (pvNode && depth >= 6 && ttMove == default)
             depth -= 2;
 
         var moves = board.GetLegalMoves(inQSearch);
-        Array.Sort(moves.Select(m => GetMoveScore(m, TTm)).ToArray(), moves);
+        Array.Sort(moves.Select(m => GetMoveScore(m, ttMove)).ToArray(), moves);
 
         int latestAlpha = 0;  // #DEBUG
 
-        void UpdateHistory(Move m, int bonus)
-        {
-            ref int hist = ref historyTable[IsWhiteToMoveInt, (int)m.MovePieceType, m.TargetSquare.Index];
-            hist += 32 * bonus * depth - hist * depth * depth / 512;
-        }
-
-        foreach (Move m in moves)
+        foreach (Move move in moves)
         {
             moveCount++;
             // futility pruning:
@@ -285,12 +278,12 @@ public class MyBot : IChessBot
             if (!root
                 && depth < 8
                 && moveCount > 1 // don't prune TT move
-                && eval + FPMargin * depth + FPFixedMargin < alpha // threshhold of 50 + 100 * depth centipawns
-                && !m.IsCapture
-                && !m.IsPromotion)
+                && staticScore + FPMargin * depth + FPFixedMargin < alpha // threshhold of 50 + 100 * depth centipawns
+                && !move.IsCapture
+                && !move.IsPromotion)
                 break;
 
-            board.MakeMove(m);
+            board.MakeMove(move);
 
             // late move reduction
             if (depth <= 2
@@ -306,7 +299,7 @@ public class MyBot : IChessBot
                     // full window search
                     score = -AlphaBeta(depth - 1, -beta, -alpha);
 
-            board.UndoMove(m);
+            board.UndoMove(move);
 
             // Terminate search if time is up
             if ((timerCalls & 0xFF) == 0 && // only poll timer every 256 moves
@@ -317,30 +310,32 @@ public class MyBot : IChessBot
             {
                 latestAlpha = moveCount;  // #DEBUG
 
-                TTnodeType = 1; // PV node
+                nodeFlag = 1; // PV node
                 alpha = score;
-                TTm = m;
+                ttMove = move;
 
                 if (root)
-                    bestMove = TTm;
+                    bestMove = ttMove;
 
                 if (score >= beta)
                 {
                     stats.TraceCutoffs(moveCount);  // #DEBUG
 
-                    TTnodeType = 2; // Fail high
-                    if (!m.IsCapture)
+                    nodeFlag = 2; // Fail high
+                    if (!move.IsCapture)
                     {
                         while (badQuietCount-- > 0)
                             UpdateHistory(badQuiets[badQuietCount], -depth);
-                        UpdateHistory(m, depth);
-                        killerMoves[board.PlyCount] = m;
+                        UpdateHistory(move, depth);
+                        killerMoves[board.PlyCount] = move;
                     }
+
                     break;
                 }
             }
-            if (!m.IsCapture)
-                badQuiets[badQuietCount++] = m;
+
+            if (!move.IsCapture)
+                badQuiets[badQuietCount++] = move;
         }
 
         if (!inQSearch)
@@ -349,12 +344,18 @@ public class MyBot : IChessBot
             if (moveCount < 1)
                 return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
 
-            transpositionTable[TTidx] = (zobrist, depth, alpha, TTnodeType, TTm);
+            transpositionTable[ttIndex] = (zobrist, depth, alpha, nodeFlag, ttMove);
         }
 
-        stats.TracePVOrAllNodes(TTnodeType, latestAlpha); // #DEBUG
+        stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
 
         return alpha;
+
+        void UpdateHistory(Move m, int bonus)
+        {
+            ref int entry = ref historyTable[IsWhiteToMoveInt, (int)m.MovePieceType, m.TargetSquare.Index];
+            entry += 32 * bonus * depth - entry * depth * depth / 512;
+        }
     }
 
     [NoTokenCount]
