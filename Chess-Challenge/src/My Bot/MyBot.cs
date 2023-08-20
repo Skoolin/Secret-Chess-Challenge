@@ -55,14 +55,6 @@ public class MyBot : IChessBot
     private readonly int[,,] historyTable = new int[2, 7, 64];
 
     /// <summary>
-    /// <see href="http://www.aifactory.co.uk/newsletter/2007_01_neg_plausibility.htm">Negative Plausibility: Extension of History Heuristic</see>.
-    /// 
-    /// Stores quiet moves that didn't raise alpha and that "delayed" a beta cutoff from occurring.
-    /// These moves receive a penalty in the <see cref="historyTable"/> when a move with a lower score causes a beta cutoff to occur.
-    /// </summary>
-    private readonly Move[] badQuiets = new Move[512];
-
-    /// <summary>
     /// <see href="https://www.chessprogramming.org/Killer_Move">Killer Move Heuristic</see> for ordering quiet moves.
     /// Used to retrieve moves that caused a beta cutoff in sibling nodes.
     /// 
@@ -219,7 +211,6 @@ public class MyBot : IChessBot
         bool inQSearch = depth <= 0;
 
         int staticScore = EvaluateStatically(),
-            badQuietCount = 0,
             moveCount = 0,
             nodeFlag = 3,
             score;
@@ -325,8 +316,6 @@ public class MyBot : IChessBot
                     nodeFlag = 2; // Fail high
                     if (!move.IsCapture)
                     {
-                        while (badQuietCount-- > 0)
-                            UpdateHistory(badQuiets[badQuietCount], -depth);
                         UpdateHistory(move, depth);
                         killerMoves[board.PlyCount] = move;
                     }
@@ -336,7 +325,7 @@ public class MyBot : IChessBot
             }
 
             if (!move.IsCapture)
-                badQuiets[badQuietCount++] = move;
+                UpdateHistory(move, -depth);
         }
 
         if (!inQSearch)
@@ -352,9 +341,9 @@ public class MyBot : IChessBot
 
         return alpha;
 
-        void UpdateHistory(Move m, int bonus)
+        void UpdateHistory(Move move, int bonus)
         {
-            ref int entry = ref historyTable[IsWhiteToMoveInt, (int)m.MovePieceType, m.TargetSquare.Index];
+            ref int entry = ref historyTable[IsWhiteToMoveInt, (int)move.MovePieceType, move.TargetSquare.Index];
             entry += 32 * bonus * depth - entry * depth * depth / 512;
         }
     }
