@@ -233,9 +233,8 @@ public class MyBot : IChessBot
         }
 
         // Transposition table lookup
-        ulong zobrist = board.ZobristKey,
-            ttIndex = zobrist % TABLE_SIZE;
-        var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[ttIndex];
+        ulong zobrist = board.ZobristKey;
+        var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[zobrist % TABLE_SIZE];
 
         stats.TraceTTProbe(inQSearch, zobrist, ttZobrist); // #DEBUG
 
@@ -344,7 +343,7 @@ public class MyBot : IChessBot
             if (moveCount < 1)
                 return board.IsInCheck() ? -20_000_000 + board.PlyCount : 0;
 
-            transpositionTable[ttIndex] = (zobrist, depth, alpha, nodeFlag, ttMove);
+            transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, alpha, nodeFlag, ttMove);
         }
 
         stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
