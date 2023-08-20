@@ -411,7 +411,7 @@ public class MyBot : IChessBot
 
         stats.Nodes = 0;  // #DEBUG
 
-        for (int depth = 0; timer.MillisecondsElapsedThisTurn * SoftTimeLimit < timer.MillisecondsRemaining && ++depth < 64;)
+        for (int depth = 0; SoftTimeLimit * timer.MillisecondsElapsedThisTurn < timer.MillisecondsRemaining && ++depth < 64;)
         {
             var score = // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
