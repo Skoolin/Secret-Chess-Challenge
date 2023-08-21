@@ -103,11 +103,6 @@ public class MyBot : IChessBot
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
     /// <summary>
-    /// Gets an integer value representing the current player's turn (0 or 1).
-    /// </summary>
-    private int IsWhiteToMoveInt => Convert.ToInt32(board.IsWhiteToMove);
-
-    /// <summary>
     /// Performs static evaluation using <see href="https://www.chessprogramming.org/Piece-Square_Tables">Piece Square Tables</see>
     /// and <see href="https://www.chessprogramming.org/Tapered_Eval">Tapered Evaluation</see>.
     /// </summary>
@@ -169,7 +164,7 @@ public class MyBot : IChessBot
           // 4. Killer heuristic for quiet moves
           : killerMoves[board.PlyCount] == move ? 10000
           // 5. History heuristic for quiet moves
-          : 100_000_000 - historyTable[IsWhiteToMoveInt, (int)move.MovePieceType, move.TargetSquare.Index];
+          : 100_000_000 - historyTable[board.PlyCount & 1, (int)move.MovePieceType, move.TargetSquare.Index];
 
     /// <summary>
     /// Performs an <see href="https://www.chessprogramming.org/Alpha-Beta">Alpha-Beta</see> search with
@@ -343,7 +338,7 @@ public class MyBot : IChessBot
 
         void UpdateHistory(Move move, int bonus)
         {
-            ref int entry = ref historyTable[IsWhiteToMoveInt, (int)move.MovePieceType, move.TargetSquare.Index];
+            ref int entry = ref historyTable[board.PlyCount & 1, (int)move.MovePieceType, move.TargetSquare.Index];
             entry += 32 * bonus * depth - entry * depth * depth / 512;
         }
     }
