@@ -283,15 +283,21 @@ public class MyBot : IChessBot
                 if (depth > 2 && moveCount > 5)
                     reduction = pvNode ? 2 : (1 + Math.ILogB(depth));
 
+                ZERO_WINDOW_SEARCH:
                 // Zero window search, possibly with reduced depth (LMR)
-                int zeroWindow = -AlphaBeta(depth - reduction, -alpha - 1, -alpha);
+                score = -AlphaBeta(depth - reduction, -alpha - 1, -alpha);
 
                 // Zero window failed high, so full window search is required
-                if (zeroWindow > alpha && (pvNode || reduction > 1))
-                    score = -AlphaBeta(depth - 1, -beta, -alpha);
-                // Zero window failed low, so don't search this move since it's too bad
-                else
-                    score = zeroWindow;
+                if (score > alpha)
+                {
+                    if (reduction > 1) // if there was a reduction before, try without reducing
+                    {
+                        reduction = 1;
+                        goto ZERO_WINDOW_SEARCH;
+                    }
+                    if (pvNode && score < beta)
+                        score = -AlphaBeta(depth - 1, -beta, -alpha);
+                }
             }
 
             board.UndoMove(move);
