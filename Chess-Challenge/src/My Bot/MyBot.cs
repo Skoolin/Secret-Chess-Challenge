@@ -275,19 +275,18 @@ public class MyBot : IChessBot
             if (
                 // full search in qsearch
                 inQSearch
+                || moveCount == 1
                 || (
                     // late move reductions
                     moveCount <= 5
                     || depth <= 2
                     || alpha < (score = -AlphaBeta(depth - (pvNode ? 2 : 1 + Math.ILogB(depth)), -alpha - 1, -alpha))
                     )
-                &&
-                    (
+                && 
                     // zero window search
-                    moveCount <= 1
-                    || alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
+                    alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
                     && score < beta
-                    )
+                    && pvNode
                 )
                     // full window search
                     score = -AlphaBeta(depth - 1, -beta, -alpha);
