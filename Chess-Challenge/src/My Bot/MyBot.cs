@@ -272,33 +272,25 @@ public class MyBot : IChessBot
 
             board.MakeMove(move);
 
-            if (inQSearch || moveCount == 1)
-            {
-                // Full window search on first move or in quiescence search
-                score = -AlphaBeta(depth - 1, -beta, -alpha);
-            }
-            else
-            {
-                int reduction = 1;
-                if (depth > 2 && moveCount > 5)
-                    reduction = pvNode ? 2 : (1 + Math.ILogB(depth));
-
-                ZERO_WINDOW_SEARCH:
-                // Zero window search, possibly with reduced depth (LMR)
-                score = -AlphaBeta(depth - reduction, -alpha - 1, -alpha);
-
-                // Zero window failed high, so full window search is required
-                if (score > alpha)
-                {
-                    if (reduction > 1) // if there was a reduction before, try without reducing
-                    {
-                        reduction = 1;
-                        goto ZERO_WINDOW_SEARCH;
-                    }
-                    if (pvNode && score < beta)
-                        score = -AlphaBeta(depth - 1, -beta, -alpha);
-                }
-            }
+            if (
+                // full search in qsearch
+                inQSearch
+                || (
+                    // late move reductions
+                    moveCount <= 5
+                    || depth <= 2
+                    || alpha < (score = -AlphaBeta(depth - (pvNode ? 2 : 1 + Math.ILogB(depth)), -alpha - 1, -alpha))
+                    )
+                &&
+                    (
+                    // zero window search
+                    moveCount <= 1
+                    || alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
+                    && score < beta
+                    )
+                )
+                    // full window search
+                    score = -AlphaBeta(depth - 1, -beta, -alpha);
 
             board.UndoMove(move);
 
