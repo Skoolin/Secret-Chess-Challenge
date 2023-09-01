@@ -7,7 +7,7 @@ using static ChessChallenge.Application.UCI;          // #DEBUG
 public class MyBot : IChessBot
 {
     [Tunable] public int TempoBonus { get; set; } = 46; // #DEBUG
-    [Tunable] public int RFPMargin { get; set; } = 337; // #DEBUG
+    [Tunable] public int RFPMargin { get; set; } = 236; // #DEBUG
     [Tunable] public int FPMargin { get; set; } = 473; // #DEBUG
     [Tunable] public int FPFixedMargin { get; set; } = 173; // #DEBUG
     [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
@@ -215,15 +215,8 @@ public class MyBot : IChessBot
             if (staticScore >= beta) return beta;
             if (alpha < staticScore) alpha = staticScore;
         }
-        else
-        {
-            // reverse futility pruning
-            if (!inCheck && depth < 8 && beta <= staticScore - RFPMargin * depth)
-                return staticScore;
-            // Early return without generating moves for draw positions
-            if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
-                return 0;
-        }
+        else if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
+            return 0;
 
         // Transposition table lookup
         ulong zobrist = board.ZobristKey;
@@ -237,15 +230,23 @@ public class MyBot : IChessBot
         else if (!root && ttDepth >= depth && (ttFlag is 1 || ttFlag is 2 && ttScore >= beta || ttFlag is 3 && ttScore <= alpha))
             return ttScore;
 
-        // Null Move Pruning: check if we beat beta even without moving
-        if (nullMoveAllowed && depth >= 2 && staticScore >= beta && board.TrySkipTurn())
-        {
-            score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false);
-            board.UndoSkipTurn();
-            if (score >= beta) return beta;
-        }
-
         bool pvNode = alpha != beta - 1;
+
+        if (!inQSearch && !root && !pvNode && !inCheck)
+        {
+            // Static null move pruning (reverse futility pruning)
+            if (depth < 8 && beta <= staticScore - RFPMargin * depth)
+                return beta;
+
+            // Null move pruning: check if we beat beta even without moving
+            if (nullMoveAllowed && depth >= 2 && staticScore >= beta)
+            {
+                board.ForceSkipTurn();
+                score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false);
+                board.UndoSkipTurn();
+                if (score >= beta) return beta;
+            }
+        }
 
         // Internal iterative reductions
         if (pvNode && depth >= 6 && ttMove == default)
