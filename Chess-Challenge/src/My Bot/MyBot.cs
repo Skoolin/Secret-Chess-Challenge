@@ -8,8 +8,9 @@ public class MyBot : IChessBot
 {
     [Tunable] public int TempoBonus { get; set; } = 46; // #DEBUG
     [Tunable] public int RFPMargin { get; set; } = 236; // #DEBUG
-    [Tunable] public int FPMargin { get; set; } = 473; // #DEBUG
-    [Tunable] public int FPFixedMargin { get; set; } = 173; // #DEBUG
+    [Tunable] public int LMPMargin { get; set; } = 8; // #DEBUG
+    [Tunable] public int FPMargin { get; set; } = 360; // #DEBUG
+    [Tunable] public int FPFixedMargin { get; set; } = 290; // #DEBUG
     [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
     [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
 
@@ -260,16 +261,18 @@ public class MyBot : IChessBot
         foreach (Move move in moves)
         {
             moveCount++;
-            // futility pruning:
-            // if static eval is far below alpha and this move doesn't seem likely to raise it, 
-            // this and later moves probably won't.
-            if (!root
-                && depth < 8
-                && moveCount > 1 // don't prune TT move
-                && staticScore + FPMargin * depth + FPFixedMargin < alpha // threshhold of 50 + 100 * depth centipawns
-                && !move.IsCapture
-                && !move.IsPromotion)
-                break;
+
+            if (!inQSearch && !root && !pvNode && !inCheck)
+            {
+                // Late move pruning: if we've tried enough moves at low depth, skip the rest
+                if (depth < 4 && moveCount >= LMPMargin * depth)
+                    break;
+
+                // Futility pruning: if static score is far below alpha and this move is unlikely to raise it,
+                // this and later moves probably won't
+                if (depth < 6 && staticScore + FPMargin * depth + FPFixedMargin < alpha && !move.IsCapture && !move.IsPromotion)
+                    break;
+            }
 
             board.MakeMove(move);
 
