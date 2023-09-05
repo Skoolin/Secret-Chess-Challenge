@@ -284,7 +284,7 @@ public class MyBot : IChessBot
                     // late move reductions
                     moveCount <= 5
                     || depth <= 2
-                    || alpha < (score = -AlphaBeta(depth - (pvNode ? 2 : 1 + Math.ILogB(depth)), -alpha - 1, -alpha))
+                    || alpha < (score = -AlphaBeta(depth - moveCount / 13 - depth / 9 - (pvNode ? 1 : 2), -alpha - 1, -alpha))
                     )
                 &&
                     // zero window search
