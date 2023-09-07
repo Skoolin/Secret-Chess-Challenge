@@ -332,15 +332,11 @@ public class MyBot : IChessBot
                 UpdateHistory(move, -depth);
         }
 
-        if (!inQSearch)
-        {
-            // Checkmate or stalemate
-            if (moveCount < 1)
-                return inCheck ? -20_000_000 + board.PlyCount : 0;
+        // Checkmate or stalemate
+        if (!inQSearch && moveCount < 1)
+            return inCheck ? -20_000_000 + board.PlyCount : 0;
 
-            transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, alpha, nodeFlag, ttMove);
-        }
-
+        transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, alpha, nodeFlag, ttMove);
         stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
 
         return alpha;
