@@ -13,6 +13,8 @@ public class MyBot : IChessBot
     [Tunable] public int FPFixedMargin { get; set; } = 290; // #DEBUG
     [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
     [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
+    [Tunable] public int LMRMoves { get; set; } = 15; // #DEBUG
+    [Tunable] public int LMRDepth { get; set; } = 5; // #DEBUG
 
     private readonly Statistics stats = new(); // #DEBUG
 
@@ -284,7 +286,7 @@ public class MyBot : IChessBot
                     // late move reductions
                     moveCount <= 5
                     || depth <= 2
-                    || alpha < (score = -AlphaBeta(depth - moveCount / 13 - depth / 9 - (pvNode ? 1 : 2), -alpha - 1, -alpha))
+                    || alpha < (score = -AlphaBeta(depth - moveCount / LMRMoves - depth / LMRDepth - (pvNode ? 1 : 2), -alpha - 1, -alpha))
                     )
                 &&
                     // zero window search
