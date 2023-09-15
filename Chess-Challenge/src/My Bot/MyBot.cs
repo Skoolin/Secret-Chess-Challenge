@@ -229,7 +229,7 @@ public class MyBot : IChessBot
         // The TT entry is from a different position, so no best move is available
         if (ttZobrist != zobrist)
             ttMove = default;
-        else if (!root && ttDepth >= depth && (ttFlag is 1 || ttFlag is 2 && ttScore >= beta || ttFlag is 3 && ttScore <= alpha))
+        else if (!root && ttDepth >= depth && (ttFlag != 3 && ttScore >= beta || ttFlag != 2 && ttScore <= alpha))
             return ttScore;
 
         bool pvNode = alpha != beta - 1;
@@ -334,7 +334,7 @@ public class MyBot : IChessBot
 
         // Checkmate or stalemate
         if (!inQSearch && moveCount < 1)
-            return inCheck ? -20_000_000 + board.PlyCount : 0;
+            return inCheck ? board.PlyCount - 20_000_000 : 0;
 
         transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, alpha, nodeFlag, ttMove);
         stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
