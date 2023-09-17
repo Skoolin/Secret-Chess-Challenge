@@ -233,6 +233,8 @@ public class MyBot : IChessBot
             ttMove = default;
         else if (!root && ttDepth >= depth && (ttFlag != 3 && ttScore >= beta || ttFlag != 2 && ttScore <= alpha))
             return ttScore;
+        else
+            staticScore = ttScore;
 
         bool pvNode = alpha != beta - 1;
 
