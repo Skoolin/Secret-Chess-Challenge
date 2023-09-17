@@ -208,13 +208,15 @@ public class MyBot : IChessBot
         bool inQSearch = depth <= 0;
 
         int staticScore = EvaluateStatically(),
+            bestScore = -20_000_000, // Mate score
             moveCount = 0,
             nodeFlag = 3,
             score;
 
         if (inQSearch)
         {
-            if (staticScore >= beta) return beta;
+            bestScore = staticScore;
+            if (staticScore >= beta) return staticScore;
             if (alpha < staticScore) alpha = staticScore;
         }
         else if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
@@ -238,7 +240,7 @@ public class MyBot : IChessBot
         {
             // Static null move pruning (reverse futility pruning)
             if (depth < 8 && beta <= staticScore - RFPMargin * depth)
-                return beta;
+                return staticScore;
 
             // Null move pruning: check if we beat beta even without moving
             if (nullMoveAllowed && depth >= 2 && staticScore >= beta)
@@ -261,9 +263,7 @@ public class MyBot : IChessBot
 
         foreach (Move move in moves)
         {
-            moveCount++;
-
-            if (!inQSearch && !root && !pvNode && !inCheck)
+            if (moveCount++ > 0 && !inQSearch && !root && !pvNode && !inCheck)
             {
                 // Late move pruning: if we've tried enough moves at low depth, skip the rest
                 if (depth < 4 && moveCount >= LMPMargin * depth)
@@ -302,6 +302,9 @@ public class MyBot : IChessBot
             if (depth > 3 && HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining)
                 return 0;
 
+            if (score > bestScore)
+                bestScore = score;
+
             if (score > alpha)
             {
                 latestAlpha = moveCount;  // #DEBUG
@@ -336,10 +339,10 @@ public class MyBot : IChessBot
         if (!inQSearch && moveCount < 1)
             return inCheck ? board.PlyCount - 20_000_000 : 0;
 
-        transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, alpha, nodeFlag, ttMove);
+        transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, bestScore, nodeFlag, ttMove);
         stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
 
-        return alpha;
+        return bestScore;
 
         void UpdateHistory(Move move, int bonus)
         {
