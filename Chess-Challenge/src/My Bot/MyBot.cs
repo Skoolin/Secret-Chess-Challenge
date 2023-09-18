@@ -54,7 +54,7 @@ public class MyBot : IChessBot
     /// 
     /// <para>Indexed by [<see cref="Move.MovePieceType"/>][<see cref="Move.TargetSquare"/>].</para>
     /// </summary>
-    private readonly int[,,] historyTable = new int[2, 7, 64];
+    private readonly int[] historyTable = new int[4096];
 
     /// <summary>
     /// <see href="https://www.chessprogramming.org/Killer_Move">Killer Move Heuristic</see> for ordering quiet moves.
@@ -166,7 +166,7 @@ public class MyBot : IChessBot
           // 4. Killer heuristic for quiet moves
           : killerMoves[board.PlyCount] == move ? 10000
           // 5. History heuristic for quiet moves
-          : 100_000_000 - historyTable[board.PlyCount & 1, (int)move.MovePieceType, move.TargetSquare.Index];
+          : 100_000_000 - historyTable[move.RawValue & 4095];
 
     /// <summary>
     /// Performs an <see href="https://www.chessprogramming.org/Alpha-Beta">Alpha-Beta</see> search with
@@ -348,7 +348,7 @@ public class MyBot : IChessBot
 
         void UpdateHistory(Move move, int bonus)
         {
-            ref int entry = ref historyTable[board.PlyCount & 1, (int)move.MovePieceType, move.TargetSquare.Index];
+            ref int entry = ref historyTable[move.RawValue & 4095];
             entry += 32 * bonus * depth - entry * depth * depth / 512;
         }
     }
