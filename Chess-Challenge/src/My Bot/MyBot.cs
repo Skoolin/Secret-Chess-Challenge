@@ -18,10 +18,6 @@ public class MyBot : IChessBot
 
     private readonly Statistics stats = new(); // #DEBUG
 
-    // Save received search parameters to simplify function signatures
-    private Timer timer;
-    private Board board;
-
     private Move bestMove;
 
     // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
@@ -104,71 +100,36 @@ public class MyBot : IChessBot
          2135535662706613888346369540m,  3680542823136497829114425348m,  1821210171323644351172128516m,   276184047857016610036851716m,
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
-    /// <summary>
-    /// Performs static evaluation using <see href="https://www.chessprogramming.org/Piece-Square_Tables">Piece Square Tables</see>
-    /// and <see href="https://www.chessprogramming.org/Tapered_Eval">Tapered Evaluation</see>.
-    /// </summary>
-    /// <returns>The static evaluation of the board position from the perspective of the current player.</returns>
-    /// <remarks>This method will be manually inlined into the <see cref="AlphaBeta"/> method to save tokens.</remarks>
-    private int EvaluateStatically()
+    [NoTokenCount]
+    private string GetPV(Board board, Move move, int limit)
     {
-        int mgScore = 0, egScore = 0, phase = 0;
-
-        // Colors are represented by the xor value of the PSQT flip
-        foreach (var xor in new[] { 56, 0 })
+        var res = " " + move.ToUCIString();
+        board.MakeMove(move);
+        var TTentry = transpositionTable[board.ZobristKey % TABLE_SIZE];
+        if (limit > 1 && TTentry.Item1 == board.ZobristKey)
         {
-            for (var piece = 0; piece < 6; piece++)
+            Move m = TTentry.Item5;
+            if (board.GetLegalMoves().Contains(m))
             {
-                ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
-                while (bitboard != 0)
-                {
-                    int index = piece +                                          // piece index
-                        16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
-                        ^ xor);                                                  // flip board for white pieces
-
-                    mgScore += pieceSquareTables[index];
-                    egScore += pieceSquareTables[index + 6];
-                    // Save 8 tokens by packing a lookup table into a single int
-                    phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
-                }
+                res += GetPV(board, m, limit - 1);
             }
-
-            mgScore = -mgScore;
-            egScore = -egScore;
         }
+        board.UndoMove(move);
+        return res;
+    }
 
-        // Interpolate between game phases and add a bonus for the side to move
-        return TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1);
+    [NoTokenCount]
+    private void SendReport(Board board, Timer timer, int depth, int score)
+    {
+        Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {stats.Nodes}");
+        Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
+        Console.WriteLine($" pv{GetPV(board, bestMove, 15)}");
     }
 
     /// <summary>
-    /// Evaluates a move for <see href="https://www.chessprogramming.org/Move_Ordering">Move Ordering</see>.
+    /// The main search method of the engine. It uses <see href="https://www.chessprogramming.org/Iterative_Deepening">Iterative Deepening</see>
+    /// and the "Optimal Time Management" Strategy for <see href="https://www.chessprogramming.org/Time_Management">Time Management</see>.
     /// 
-    /// Move ordering features are:
-    /// <list type="number">
-    ///     <item>Transposition Table</item>
-    ///     <item>Promotions</item>
-    ///     <item>Captures using MVV-LVA</item>
-    ///     <item>Killer Move Heuristic</item>
-    ///     <item>History Heuristic with Negative Plausibility</item>
-    /// </list>
-    /// </summary>
-    /// <param name="move">The move to evaluate.</param>
-    /// <param name="tableMove">The PV move retrieved from the transposition table (or <see cref="Move.NullMove"/>).</param>
-    /// <returns>The move's ranking for move ordering.</returns>
-    private int GetMoveScore(Move move, Move tableMove) =>
-          // 1. TT move
-          move == tableMove ? 0
-          // 2. Queen promotion, don't bother with underpromotions
-          : move.PromotionPieceType is PieceType.Queen ? 1
-          // 3. MVV-LVA for captures
-          : move.IsCapture ? 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType
-          // 4. Killer heuristic for quiet moves
-          : killerMoves[board.PlyCount] == move ? 10000
-          // 5. History heuristic for quiet moves
-          : 100_000_000 - historyTable[move.RawValue & 4095];
-
-    /// <summary>
     /// Performs an <see href="https://www.chessprogramming.org/Alpha-Beta">Alpha-Beta</see> search with
     /// integrated <see href="https://www.chessprogramming.org/Quiescence_Search">Quiescence Search</see> for compactness.
     /// 
@@ -182,229 +143,13 @@ public class MyBot : IChessBot
     ///   <item><description><see href="https://www.chessprogramming.org/Late_Move_Reductions">Adaptive Late Move Reductions</see></description></item>
     ///   <item><description><see href="https://www.chessprogramming.org/Principal_Variation_Search">Principal Variation Search</see></description></item>
     /// </list>
-    /// </summary>
-    /// 
-    /// <param name="depth">The remaining search depth.</param>
-    /// <param name="alpha">The lower score bound.</param>
-    /// <param name="beta">The upper score bound.</param>
-    /// <param name="nullMoveAllowed">Specifies whether null move pruning is allowed.</param>
-    /// <param name="root">Specifies whether the method is being called at the root of the search tree.</param>
-    /// <returns>The evaluation of the position searched up to the specified <paramref name="depth"/>.</returns>
-    /// 
-    /// <remarks>
-    /// This method will be manually inlined in the <see cref="Think(Board, Timer)"/> method to have access to the
-    /// <see cref="board"/> and <see cref="timer"/> variables in the <see cref="Think(Board, Timer)"/> method's scope.
-    /// </remarks>
-    private int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
-    {
-        stats.Nodes++; // #DEBUG
-
-        bool inCheck = board.IsInCheck();
-
-        // Check extension in case of forcing sequences
-        if (depth >= 0 && inCheck)
-            depth += 1;
-
-        bool inQSearch = depth <= 0;
-
-        int staticScore = EvaluateStatically(),
-            bestScore = -20_000_000, // Mate score
-            moveCount = 0,
-            nodeFlag = 3,
-            score;
-
-        if (inQSearch)
-        {
-            bestScore = staticScore;
-            if (staticScore >= beta) return staticScore;
-            if (alpha < staticScore) alpha = staticScore;
-        }
-        else if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
-            return 0;
-
-        // Transposition table lookup
-        ulong zobrist = board.ZobristKey;
-        var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[zobrist % TABLE_SIZE];
-
-        stats.TraceTTProbe(inQSearch, zobrist, ttZobrist); // #DEBUG
-
-        // The TT entry is from a different position, so no best move is available
-        if (ttZobrist != zobrist)
-            ttMove = default;
-        else if (!root && ttDepth >= depth && (ttFlag != 3 && ttScore >= beta || ttFlag != 2 && ttScore <= alpha))
-            return ttScore;
-        else
-            staticScore = ttScore;
-
-        bool pvNode = alpha != beta - 1;
-
-        if (!inQSearch && !root && !pvNode && !inCheck)
-        {
-            // Static null move pruning (reverse futility pruning)
-            if (depth < 8 && beta <= staticScore - RFPMargin * depth)
-                return staticScore;
-
-            // Null move pruning: check if we beat beta even without moving
-            if (nullMoveAllowed && depth >= 2 && staticScore >= beta)
-            {
-                board.ForceSkipTurn();
-                score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false);
-                board.UndoSkipTurn();
-                if (score >= beta) return beta;
-            }
-        }
-
-        // Internal iterative reductions
-        if (pvNode && depth >= 6 && ttMove == default)
-            depth -= 2;
-
-        var moves = board.GetLegalMoves(inQSearch);
-        Array.Sort(moves.Select(m => GetMoveScore(m, ttMove)).ToArray(), moves);
-
-        int latestAlpha = 0;  // #DEBUG
-
-        foreach (Move move in moves)
-        {
-            if (moveCount++ > 0 && !inQSearch && !root && !pvNode && !inCheck)
-            {
-                // Late move pruning: if we've tried enough moves at low depth, skip the rest
-                if (depth < 4 && moveCount >= LMPMargin * depth)
-                    break;
-
-                // Futility pruning: if static score is far below alpha and this move is unlikely to raise it,
-                // this and later moves probably won't
-                if (depth < 6 && staticScore + FPMargin * depth + FPFixedMargin < alpha && !move.IsCapture && !move.IsPromotion)
-                    break;
-            }
-
-            board.MakeMove(move);
-
-            if (
-                // full search in qsearch
-                inQSearch
-                || moveCount == 1
-                || (
-                    // late move reductions
-                    moveCount <= 5
-                    || depth <= 2
-                    || alpha < (score = -AlphaBeta(depth - moveCount / LMRMoves - depth / LMRDepth - (pvNode ? 1 : 2), -alpha - 1, -alpha))
-                    )
-                &&
-                    // zero window search
-                    alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
-                    && score < beta
-                    && pvNode
-                )
-                // full window search
-                score = -AlphaBeta(depth - 1, -beta, -alpha);
-
-            board.UndoMove(move);
-
-            // Avoid polling the timer at low depths, so it doesn't affect performance
-            if (depth > 3 && HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining)
-                return 0;
-
-            if (score > bestScore)
-                bestScore = score;
-
-            if (score > alpha)
-            {
-                latestAlpha = moveCount;  // #DEBUG
-
-                nodeFlag = 1; // PV node
-                alpha = score;
-                ttMove = move;
-
-                if (root)
-                    bestMove = ttMove;
-
-                if (score >= beta)
-                {
-                    stats.TraceCutoffs(moveCount);  // #DEBUG
-
-                    nodeFlag = 2; // Fail high
-                    if (!move.IsCapture)
-                    {
-                        UpdateHistory(move, depth);
-                        killerMoves[board.PlyCount] = move;
-                    }
-
-                    break;
-                }
-            }
-
-            if (!move.IsCapture)
-                UpdateHistory(move, -depth);
-        }
-
-        // Checkmate or stalemate
-        if (!inQSearch && moveCount < 1)
-            return inCheck ? board.PlyCount - 20_000_000 : 0;
-
-        transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, bestScore, nodeFlag, ttMove);
-        stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
-
-        return bestScore;
-
-        void UpdateHistory(Move move, int bonus)
-        {
-            ref int entry = ref historyTable[move.RawValue & 4095];
-            entry += 32 * bonus * depth - entry * depth * depth / 512;
-        }
-    }
-
-    [NoTokenCount]
-    private string GetPV(Move move, int limit)
-    {
-        var res = " " + move.ToUCIString();
-        board.MakeMove(move);
-        var TTentry = transpositionTable[board.ZobristKey % TABLE_SIZE];
-        if (limit > 1 && TTentry.Item1 == board.ZobristKey)
-        {
-            Move m = TTentry.Item5;
-            if (board.GetLegalMoves().Contains(m))
-            {
-                res += GetPV(m, limit - 1);
-            }
-        }
-        board.UndoMove(move);
-        return res;
-    }
-
-    [NoTokenCount]
-    private void SendReport(int depth, int score)
-    {
-        Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {stats.Nodes}");
-        Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
-        Console.WriteLine($" pv{GetPV(bestMove, 15)}");
-    }
-
-    [NoTokenCount]
-    public Move Think(Board _board, int maxDepth)
-    {
-        timer = new Timer(100000000);
-        board = _board;
-
-        var score = AlphaBeta(maxDepth, -100_000_000, 100_000_000, true, true);
-        SendReport(maxDepth, score);
-        return bestMove;
-    }
-
-    /// <summary>
-    /// <para>The main method initiating the search.</para>
-    /// 
-    /// Uses <see href="https://www.chessprogramming.org/Iterative_Deepening">Iterative Deepening</see>
-    /// and the "Optimal Time Management" Strategy for <see href="https://www.chessprogramming.org/Time_Management">Time Management</see>.
     /// 
     /// </summary>
-    /// <param name="_board">The current game board.</param>
-    /// <param name="_timer">The timer for managing search time.</param>
+    /// <param name="board">The current game board.</param>
+    /// <param name="timer">The timer for managing search time.</param>
     /// <returns>The best move found in the current position.</returns>
-    public Move Think(Board _board, Timer _timer)
+    public Move Think(Board board, Timer timer)
     {
-        timer = _timer;
-        board = _board;
-
         stats.Nodes = 0;  // #DEBUG
 
         for (int depth = 0; SoftTimeLimit * timer.MillisecondsElapsedThisTurn < timer.MillisecondsRemaining && ++depth < 64;)
@@ -412,10 +157,206 @@ public class MyBot : IChessBot
             var score = // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
 
-            SendReport(depth, score); // #DEBUG
+            SendReport(board, timer, depth, score); // #DEBUG
             //stats.PrintStatistics(); // #DEBUG
         }
 
         return bestMove;
+
+        int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
+        {
+            stats.Nodes++; // #DEBUG
+
+            bool inCheck = board.IsInCheck();
+
+            // Check extension in case of forcing sequences
+            if (depth >= 0 && inCheck)
+                depth += 1;
+
+            bool inQSearch = depth <= 0;
+
+            // Static evaluation using Piece-Square Tables (https://www.chessprogramming.org/Piece-Square_Tables)
+            int mgScore = 0, egScore = 0, phase = 0;
+            // Colors are represented by the xor value of the PSQT flip
+            foreach (int xor in new[] { 56, 0 })
+            {
+                for (int piece = 0; piece < 6; piece++)
+                {
+                    ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
+                    while (bitboard != 0)
+                    {
+                        int index = piece +                                          // piece index
+                            16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
+                            ^ xor);                                                  // flip board for white pieces
+
+                        mgScore += pieceSquareTables[index];
+                        egScore += pieceSquareTables[index + 6];
+                        phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
+                    }
+                }
+
+                mgScore = -mgScore;
+                egScore = -egScore;
+            }
+
+            // Interpolate between game phases and add a bonus for the side to move
+            int staticScore = TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1),
+                bestScore = -20_000_000, // Mate score
+                moveCount = 0,           // Number of moves played in the current position
+                nodeFlag = 3,            // Upper bound flag
+                score;                   // Score of the current move
+
+            if (inQSearch)
+            {
+                bestScore = staticScore;
+                if (staticScore >= beta) return staticScore;
+                if (alpha < staticScore) alpha = staticScore;
+            }
+            else if (!root && (board.IsRepeatedPosition() || board.IsFiftyMoveDraw()))
+                return 0;
+
+            // Transposition table lookup
+            ulong zobrist = board.ZobristKey;
+            var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[zobrist % TABLE_SIZE];
+
+            stats.TraceTTProbe(inQSearch, zobrist, ttZobrist); // #DEBUG
+
+            // The TT entry is from a different position, so no best move is available
+            if (ttZobrist != zobrist)
+                ttMove = default;
+            else if (!root && ttDepth >= depth && (ttFlag != 3 && ttScore >= beta || ttFlag != 2 && ttScore <= alpha))
+                return ttScore;
+            else
+                staticScore = ttScore;
+
+            bool pvNode = alpha != beta - 1;
+
+            if (!inQSearch && !root && !pvNode && !inCheck)
+            {
+                // Static null move pruning (reverse futility pruning)
+                if (depth < 8 && beta <= staticScore - RFPMargin * depth)
+                    return staticScore;
+
+                // Null move pruning: check if we beat beta even without moving
+                if (nullMoveAllowed && depth >= 2 && staticScore >= beta)
+                {
+                    board.ForceSkipTurn();
+                    score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false);
+                    board.UndoSkipTurn();
+                    if (score >= beta) return beta;
+                }
+            }
+
+            // Internal iterative reductions
+            if (pvNode && depth >= 6 && ttMove == default)
+                depth -= 2;
+
+            var moves = board.GetLegalMoves(inQSearch);
+
+            // Evaluate moves for Move Ordering (https://www.chessprogramming.org/Move_Ordering)
+            Array.Sort(moves.Select(move =>
+                // 1. PV move retrieved from the transposition table
+                move == ttMove ? 0
+                // 2. Queen promotion, don't bother with underpromotions
+                : move.PromotionPieceType is PieceType.Queen ? 1
+                // 3. Captures using MVV-LVA
+                : move.IsCapture ? 1000 - 10 * (int)move.CapturePieceType + (int)move.MovePieceType
+                // 4. Killer Move Heuristic
+                : killerMoves[board.PlyCount] == move ? 10000
+                // 5. History Heuristic with Negative Plausibility
+                : 100_000_000 - historyTable[move.RawValue & 4095]
+            ).ToArray(), moves);
+
+            int latestAlpha = 0;  // #DEBUG
+
+            foreach (Move move in moves)
+            {
+                if (moveCount++ > 0 && !inQSearch && !root && !pvNode && !inCheck)
+                {
+                    // Late move pruning: if we've tried enough moves at low depth, skip the rest
+                    if (depth < 4 && moveCount >= LMPMargin * depth)
+                        break;
+
+                    // Futility pruning: if static score is far below alpha and this move is unlikely to raise it,
+                    // this and later moves probably won't
+                    if (depth < 6 && staticScore + FPMargin * depth + FPFixedMargin < alpha && !move.IsCapture && !move.IsPromotion)
+                        break;
+                }
+
+                board.MakeMove(move);
+
+                if (
+                    // full search in qsearch
+                    inQSearch
+                    || moveCount == 1
+                    || (
+                        // late move reductions
+                        moveCount <= 5
+                        || depth <= 2
+                        || alpha < (score = -AlphaBeta(depth - moveCount / LMRMoves - depth / LMRDepth - (pvNode ? 1 : 2), -alpha - 1, -alpha))
+                        )
+                    &&
+                        // zero window search
+                        alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
+                        && score < beta
+                        && pvNode
+                    )
+                    // full window search
+                    score = -AlphaBeta(depth - 1, -beta, -alpha);
+
+                board.UndoMove(move);
+
+                // Avoid polling the timer at low depths, so it doesn't affect performance
+                if (depth > 3 && HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining)
+                    return 0;
+
+                if (score > bestScore)
+                    bestScore = score;
+
+                if (score > alpha)
+                {
+                    latestAlpha = moveCount;  // #DEBUG
+
+                    nodeFlag = 1; // PV node
+                    alpha = score;
+                    ttMove = move;
+
+                    if (root)
+                        bestMove = ttMove;
+
+                    if (score >= beta)
+                    {
+                        stats.TraceCutoffs(moveCount);  // #DEBUG
+
+                        nodeFlag = 2; // Fail high
+                        if (!move.IsCapture)
+                        {
+                            UpdateHistory(move, depth);
+                            killerMoves[board.PlyCount] = move;
+                        }
+
+                        break;
+                    }
+                }
+
+                if (!move.IsCapture)
+                    UpdateHistory(move, -depth);
+            }
+
+            // Checkmate or stalemate
+            if (!inQSearch && moveCount < 1)
+                return inCheck ? board.PlyCount - 20_000_000 : 0;
+
+            transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, bestScore, nodeFlag, ttMove);
+            stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
+
+            return bestScore;
+
+            void UpdateHistory(Move move, int bonus)
+            {
+                ref int entry = ref historyTable[move.RawValue & 4095];
+                entry += 32 * bonus * depth - entry * depth * depth / 512;
+            }
+        }
     }
 }
