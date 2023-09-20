@@ -155,7 +155,7 @@ public class MyBot : IChessBot
         for (int depth = 0; SoftTimeLimit * timer.MillisecondsElapsedThisTurn < timer.MillisecondsRemaining && ++depth < 64;)
         {
             var score = // #DEBUG
-            AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
+            AlphaBeta(depth, -100_000_000, 100_000_000, true, 0, 0, 0, true, true);
 
             SendReport(board, timer, depth, score); // #DEBUG
             //stats.PrintStatistics(); // #DEBUG
@@ -163,7 +163,7 @@ public class MyBot : IChessBot
 
         return bestMove;
 
-        int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
+        int AlphaBeta(int depth, int alpha, int beta, bool needsEval, int mgScore, int egScore, int phase, bool nullMoveAllowed = true, bool root = false)
         {
             stats.Nodes++; // #DEBUG
 
@@ -175,28 +175,35 @@ public class MyBot : IChessBot
 
             bool inQSearch = depth <= 0;
 
-            // Static evaluation using Piece-Square Tables (https://www.chessprogramming.org/Piece-Square_Tables)
-            int mgScore = 0, egScore = 0, phase = 0;
-            // Colors are represented by the xor value of the PSQT flip
-            foreach (int xor in new[] { 56, 0 })
+            int prevMg = mgScore;
+            int prevEg = egScore;
+            int prevPh = phase;
+
+            if (needsEval)
             {
-                for (int piece = 0; piece < 6; piece++)
+                // Static evaluation using Piece-Square Tables (https://www.chessprogramming.org/Piece-Square_Tables)
+                mgScore = egScore = phase = 0;
+                // Colors are represented by the xor value of the PSQT flip
+                foreach (int xor in new[] { 56, 0 })
                 {
-                    ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
-                    while (bitboard != 0)
+                    for (int piece = 0; piece < 6; piece++)
                     {
-                        int index = piece +                                          // piece index
-                            16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
-                            ^ xor);                                                  // flip board for white pieces
+                        ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
+                        while (bitboard != 0)
+                        {
+                            int index = piece +                                          // piece index
+                                16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
+                                ^ xor);                                                  // flip board for white pieces
 
-                        mgScore += pieceSquareTables[index];
-                        egScore += pieceSquareTables[index + 6];
-                        phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
+                            mgScore += pieceSquareTables[index];
+                            egScore += pieceSquareTables[index + 6];
+                            phase += 0b_0100_0010_0001_0001_0000 >> 4 * piece & 0xF;
+                        }
                     }
-                }
 
-                mgScore = -mgScore;
-                egScore = -egScore;
+                    mgScore = -mgScore;
+                    egScore = -egScore;
+                }
             }
 
             // Interpolate between game phases and add a bonus for the side to move
@@ -241,7 +248,7 @@ public class MyBot : IChessBot
                 if (nullMoveAllowed && depth >= 2 && staticScore >= beta)
                 {
                     board.ForceSkipTurn();
-                    score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false);
+                    score = -AlphaBeta(depth - 4 - depth / 6, -beta, 1 - beta, false, mgScore, egScore, phase, false);
                     board.UndoSkipTurn();
                     if (score >= beta) return beta;
                 }
@@ -283,6 +290,28 @@ public class MyBot : IChessBot
                         break;
                 }
 
+
+                bool newNeedsEval = move.IsCastles || move.IsCapture || move.IsPromotion;
+
+                var tuple = (mgScore, egScore);
+
+                void adjustScores(PieceType piece, int squareIdx, int mult)
+                {
+                    int whiteMult = board.IsWhiteToMove ? mult : -mult;
+                    int index = (int)piece - 1 + 16 * (squareIdx ^ (board.IsWhiteToMove ? 56 : 0));
+                    tuple.mgScore += pieceSquareTables[index] * whiteMult;
+                    tuple.egScore += pieceSquareTables[index + 6] * whiteMult;
+                }
+
+                adjustScores(move.MovePieceType, move.StartSquare.Index, -1);
+                adjustScores(move.MovePieceType, move.TargetSquare.Index, 1);
+
+                if (move.IsCapture)
+                    adjustScores(move.CapturePieceType, move.TargetSquare.Index ^ 56, 1);
+
+                int Search(int depth, int newAlpha) =>
+                    -AlphaBeta(depth, newAlpha, -alpha, newNeedsEval, tuple.mgScore, tuple.egScore, move.IsCapture ? phase - 0b_0100_0010_0001_0001_0000 >> 4 * ((int)move.CapturePieceType - 1) & 0xF : phase);
+
                 board.MakeMove(move);
 
                 if (
@@ -293,16 +322,16 @@ public class MyBot : IChessBot
                         // late move reductions
                         moveCount <= 5
                         || depth <= 2
-                        || alpha < (score = -AlphaBeta(depth - moveCount / LMRMoves - depth / LMRDepth - (pvNode ? 1 : 2), -alpha - 1, -alpha))
+                        || alpha < (score = Search(depth - moveCount / LMRMoves - depth / LMRDepth - (pvNode ? 1 : 2), -alpha - 1))
                         )
                     &&
                         // zero window search
-                        alpha < (score = -AlphaBeta(depth - 1, -alpha - 1, -alpha))
+                        alpha < (score = Search(depth - 1, -alpha - 1))
                         && score < beta
                         && pvNode
                     )
                     // full window search
-                    score = -AlphaBeta(depth - 1, -beta, -alpha);
+                    score = Search(depth - 1, -beta);
 
                 board.UndoMove(move);
 
