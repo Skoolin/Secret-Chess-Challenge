@@ -175,10 +175,6 @@ public class MyBot : IChessBot
 
             bool inQSearch = depth <= 0;
 
-            int prevMg = mgScore;
-            int prevEg = egScore;
-            int prevPh = phase;
-
             if (needsEval)
             {
                 // Static evaluation using Piece-Square Tables (https://www.chessprogramming.org/Piece-Square_Tables)
