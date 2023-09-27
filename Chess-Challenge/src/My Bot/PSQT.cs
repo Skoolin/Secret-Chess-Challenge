@@ -14,8 +14,8 @@ public class PSQT
         //NormalizePSQT();
 
         var bytes = pieceSquareTables.Select(x => checked((byte)x)).ToArray();
-        var transposed = TransposeTable(bytes);
-        var compressed = CompressAsDecimalArray(transposed);
+        //var transposed = TransposeTable(bytes);
+        var compressed = CompressAsDecimalArray(bytes);
 
         for (var i = 0; i < compressed.Length; i++)
         {
