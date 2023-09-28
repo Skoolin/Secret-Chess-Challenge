@@ -20,9 +20,6 @@ public class MyBot : IChessBot
 
     private Move bestMove;
 
-    // Can save 4 tokens by removing this line and replacing `TABLE_SIZE` with a literal
-    private const ulong TABLE_SIZE = 1 << 22;
-
     /// <summary>
     /// <see href="https://www.chessprogramming.org/Transposition_Table">Transposition Table</see>
     /// for caching previously computed positions during search.
@@ -41,7 +38,7 @@ public class MyBot : IChessBot
         int,    // Evaluation
         int,    // Node type
         Move    // Best move
-    )[] transpositionTable = new (ulong, int, int, int, Move)[TABLE_SIZE];
+    )[] transpositionTable = new (ulong, int, int, int, Move)[4194304];
 
     /// <summary>
     /// <see href="https://www.chessprogramming.org/History_Heuristic">History Heuristic</see> for ordering quiet moves.
@@ -105,7 +102,7 @@ public class MyBot : IChessBot
     {
         var res = " " + move.ToUCIString();
         board.MakeMove(move);
-        var TTentry = transpositionTable[board.ZobristKey % TABLE_SIZE];
+        var TTentry = transpositionTable[board.ZobristKey % 4194304];
         if (limit > 1 && TTentry.Item1 == board.ZobristKey)
         {
             Move m = TTentry.Item5;
@@ -217,7 +214,7 @@ public class MyBot : IChessBot
 
             // Transposition table lookup
             ulong zobrist = board.ZobristKey;
-            var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[zobrist % TABLE_SIZE];
+            var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[zobrist % 4194304];
 
             stats.TraceTTProbe(inQSearch, zobrist, ttZobrist); // #DEBUG
 
@@ -347,7 +344,7 @@ public class MyBot : IChessBot
             if (!inQSearch && moveCount < 1)
                 return inCheck ? board.PlyCount - 20_000_000 : 0;
 
-            transpositionTable[zobrist % TABLE_SIZE] = (zobrist, depth, bestScore, nodeFlag, ttMove);
+            transpositionTable[zobrist % 4194304] = (zobrist, depth, bestScore, nodeFlag, ttMove);
             stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
 
             return bestScore;
