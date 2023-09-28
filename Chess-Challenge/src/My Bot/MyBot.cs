@@ -1,7 +1,6 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
-using static ChessChallenge.Application.TokenCounter; // #DEBUG
 using static ChessChallenge.Application.UCI;          // #DEBUG
 
 public class MyBot : IChessBot
@@ -15,8 +14,6 @@ public class MyBot : IChessBot
     [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
     [Tunable] public int LMRMoves { get; set; } = 15; // #DEBUG
     [Tunable] public int LMRDepth { get; set; } = 5; // #DEBUG
-
-    private readonly Statistics stats = new(); // #DEBUG
 
     private Move bestMove;
 
@@ -97,32 +94,6 @@ public class MyBot : IChessBot
          2135535662706613888346369540m,  3680542823136497829114425348m,  1821210171323644351172128516m,   276184047857016610036851716m,
     }.SelectMany(decimal.GetBits).SelectMany(BitConverter.GetBytes).ToArray();
 
-    [NoTokenCount]
-    private string GetPV(Board board, Move move, int limit)
-    {
-        var res = " " + move.ToUCIString();
-        board.MakeMove(move);
-        var TTentry = transpositionTable[board.ZobristKey % 4194304];
-        if (limit > 1 && TTentry.Item1 == board.ZobristKey)
-        {
-            Move m = TTentry.Item5;
-            if (board.GetLegalMoves().Contains(m))
-            {
-                res += GetPV(board, m, limit - 1);
-            }
-        }
-        board.UndoMove(move);
-        return res;
-    }
-
-    [NoTokenCount]
-    private void SendReport(Board board, Timer timer, int depth, int score)
-    {
-        Console.Write($"info depth {depth} score cp {(5 * score) / 24} nodes {stats.Nodes}");
-        Console.Write($" time {timer.MillisecondsElapsedThisTurn}");
-        Console.WriteLine($" pv{GetPV(board, bestMove, 15)}");
-    }
-
     /// <summary>
     /// The main search method of the engine. It uses <see href="https://www.chessprogramming.org/Iterative_Deepening">Iterative Deepening</see>
     /// and the "Optimal Time Management" Strategy for <see href="https://www.chessprogramming.org/Time_Management">Time Management</see>.
@@ -147,23 +118,13 @@ public class MyBot : IChessBot
     /// <returns>The best move found in the current position.</returns>
     public Move Think(Board board, Timer timer)
     {
-        stats.Nodes = 0;  // #DEBUG
-
         for (int depth = 0; SoftTimeLimit * timer.MillisecondsElapsedThisTurn < timer.MillisecondsRemaining && ++depth < 64;)
-        {
-            var score = // #DEBUG
             AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
-
-            SendReport(board, timer, depth, score); // #DEBUG
-            //stats.PrintStatistics(); // #DEBUG
-        }
 
         return bestMove;
 
         int AlphaBeta(int depth, int alpha, int beta, bool nullMoveAllowed = true, bool root = false)
         {
-            stats.Nodes++; // #DEBUG
-
             bool inCheck = board.IsInCheck();
 
             // Check extension in case of forcing sequences
@@ -216,8 +177,6 @@ public class MyBot : IChessBot
             ulong zobrist = board.ZobristKey;
             var (ttZobrist, ttDepth, ttScore, ttFlag, ttMove) = transpositionTable[zobrist % 4194304];
 
-            stats.TraceTTProbe(inQSearch, zobrist, ttZobrist); // #DEBUG
-
             // The TT entry is from a different position, so no best move is available
             if (ttZobrist != zobrist)
                 ttMove = default;
@@ -263,8 +222,6 @@ public class MyBot : IChessBot
                 // 5. History Heuristic with Negative Plausibility
                 : 100_000_000 - historyTable[move.RawValue & 4095]
             ).ToArray(), moves);
-
-            int latestAlpha = 0;  // #DEBUG
 
             foreach (Move move in moves)
             {
@@ -312,8 +269,6 @@ public class MyBot : IChessBot
 
                 if (score > alpha)
                 {
-                    latestAlpha = moveCount;  // #DEBUG
-
                     nodeFlag = 1; // PV node
                     alpha = score;
                     ttMove = move;
@@ -323,8 +278,6 @@ public class MyBot : IChessBot
 
                     if (score >= beta)
                     {
-                        stats.TraceCutoffs(moveCount);  // #DEBUG
-
                         nodeFlag = 2; // Fail high
                         if (!move.IsCapture)
                         {
@@ -345,8 +298,6 @@ public class MyBot : IChessBot
                 return inCheck ? board.PlyCount - 20_000_000 : 0;
 
             transpositionTable[zobrist % 4194304] = (zobrist, depth, bestScore, nodeFlag, ttMove);
-            stats.TracePVOrAllNodes(nodeFlag, latestAlpha); // #DEBUG
-
             return bestScore;
 
             void UpdateHistory(Move move, int bonus)
