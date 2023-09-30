@@ -12,7 +12,7 @@
  * slightly less golfed code on github made public after the end of the challenge:
  * https://github.com/Skoolin/Secret-Chess-Challenge
  *
- * The challege was great fun, thanks to Sebastian Lague for organising it and also
+ * The challenge was great fun, thanks to Sebastian Lague for organising it and also
  * thanks to the other participants and the great discord community for making it
  * very enjoyable and competitive. Good luck to everyone in the tournament!
  */
