@@ -1,20 +1,9 @@
 ﻿using ChessChallenge.API;
 using System;
 using System.Linq;
-using static ChessChallenge.Application.UCI;          // #DEBUG
 
 public class MyBot : IChessBot
 {
-    [Tunable] public int TempoBonus { get; set; } = 46; // #DEBUG
-    [Tunable] public int RFPMargin { get; set; } = 236; // #DEBUG
-    [Tunable] public int LMPMargin { get; set; } = 8; // #DEBUG
-    [Tunable] public int FPMargin { get; set; } = 360; // #DEBUG
-    [Tunable] public int FPFixedMargin { get; set; } = 290; // #DEBUG
-    [Tunable] public int SoftTimeLimit { get; set; } = 35; // #DEBUG
-    [Tunable] public int HardTimeLimit { get; set; } = 3; // #DEBUG
-    [Tunable] public int LMRMoves { get; set; } = 15; // #DEBUG
-    [Tunable] public int LMRDepth { get; set; } = 5; // #DEBUG
-
     private Move bestMove;
 
     /// <summary>
@@ -118,7 +107,7 @@ public class MyBot : IChessBot
     /// <returns>The best move found in the current position.</returns>
     public Move Think(Board board, Timer timer)
     {
-        for (int depth = 0; SoftTimeLimit * timer.MillisecondsElapsedThisTurn < timer.MillisecondsRemaining && ++depth < 64;)
+        for (int depth = 0; 35 * timer.MillisecondsElapsedThisTurn < timer.MillisecondsRemaining && ++depth < 64;)
             AlphaBeta(depth, -100_000_000, 100_000_000, true, true);
 
         return bestMove;
@@ -158,7 +147,7 @@ public class MyBot : IChessBot
             }
 
             // Interpolate between game phases and add a bonus for the side to move
-            int staticScore = TempoBonus + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1),
+            int staticScore = 46 + (mgScore * phase + egScore * (24 - phase)) * (board.IsWhiteToMove ? 1 : -1),
                 bestScore = -20_000_000, // Mate score
                 moveCount = 0,           // Number of moves played in the current position
                 nodeFlag = 3,            // Upper bound flag
@@ -190,7 +179,7 @@ public class MyBot : IChessBot
             if (!inQSearch && !root && !pvNode && !inCheck)
             {
                 // Static null move pruning (reverse futility pruning)
-                if (depth < 8 && beta <= staticScore - RFPMargin * depth)
+                if (depth < 8 && beta <= staticScore - 236 * depth)
                     return staticScore;
 
                 // Null move pruning: check if we beat beta even without moving
@@ -228,12 +217,12 @@ public class MyBot : IChessBot
                 if (moveCount++ > 0 && !inQSearch && !root && !pvNode && !inCheck)
                 {
                     // Late move pruning: if we've tried enough moves at low depth, skip the rest
-                    if (depth < 4 && moveCount >= LMPMargin * depth)
+                    if (depth < 4 && moveCount >= 8 * depth)
                         break;
 
                     // Futility pruning: if static score is far below alpha and this move is unlikely to raise it,
                     // this and later moves probably won't
-                    if (depth < 6 && staticScore + FPMargin * depth + FPFixedMargin < alpha && !move.IsCapture && !move.IsPromotion)
+                    if (depth < 6 && staticScore + 360 * depth + 290 < alpha && !move.IsCapture && !move.IsPromotion)
                         break;
                 }
 
@@ -247,7 +236,7 @@ public class MyBot : IChessBot
                         // late move reductions
                         moveCount <= 5
                         || depth <= 2
-                        || alpha < (score = -AlphaBeta(depth - moveCount / LMRMoves - depth / LMRDepth - (pvNode ? 1 : 2), -alpha - 1, -alpha))
+                        || alpha < (score = -AlphaBeta(depth - moveCount / 15 - depth / 5 - (pvNode ? 1 : 2), -alpha - 1, -alpha))
                         )
                     &&
                         // zero window search
@@ -261,7 +250,7 @@ public class MyBot : IChessBot
                 board.UndoMove(move);
 
                 // Avoid polling the timer at low depths, so it doesn't affect performance
-                if (depth > 3 && HardTimeLimit * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining)
+                if (depth > 3 && 3 * timer.MillisecondsElapsedThisTurn > timer.MillisecondsRemaining)
                     return 0;
 
                 if (score > bestScore)
