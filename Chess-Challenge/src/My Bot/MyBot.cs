@@ -151,9 +151,11 @@ public class MyBot : IChessBot
                     ulong bitboard = board.GetPieceBitboard((PieceType)piece + 1, xor is 56);
                     while (bitboard != 0)
                     {
-                        int index = piece +                                          // piece index
-                            16 * (BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) // row of square
-                            ^ xor);                                                  // flip board for white pieces
+                        int square = BitboardHelper.ClearAndGetIndexOfLSB(ref bitboard) ^ xor;
+                        int index = piece + 16 * square;
+
+                        if (piece == 0 && (0x101010101010101UL << (square & 7) & bitboard) > 0)
+                            egScore -= 9;
 
                         mgScore += pieceSquareTables[index];
                         egScore += pieceSquareTables[index + 6];
